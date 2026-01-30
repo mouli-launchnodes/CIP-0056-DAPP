@@ -1,65 +1,297 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
+import { Loader2, Zap, Shield, Users, ArrowRight } from 'lucide-react'
+import { ThemeToggle } from '@/components/theme-toggle'
+
+function OnboardingContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [user, setUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [email, setEmail] = useState('')
+  const [isOnboarding, setIsOnboarding] = useState(false)
+
+  useEffect(() => {
+    const checkAuthAndOnboarding = async () => {
+      try {
+        const response = await fetch('/auth/profile')
+        if (response.ok) {
+          const userData = await response.json()
+          setUser(userData)
+          setEmail(userData.email || '')
+          
+          const userPartyId = localStorage.getItem('userPartyId')
+          if (userPartyId) {
+            router.push('/dashboard')
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Auth check error:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuthAndOnboarding()
+
+    const authSuccess = searchParams.get('auth')
+    if (authSuccess === 'success') {
+      toast.success('Successfully authenticated with Auth0!')
+    }
+  }, [router, searchParams])
+
+  const handleOnboarding = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!user) {
+      toast.error('Please log in first to continue with onboarding')
+      return
+    }
+
+    setIsOnboarding(true)
+    
+    try {
+      console.log('Starting onboarding for user:', user.email)
+      
+      const response = await fetch('/api/onboard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: user.email || email,
+          auth0UserId: user.sub,
+          name: user.name
+        }),
+      })
+
+      const result = await response.json()
+      console.log('Onboarding response:', result)
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: Failed to onboard user`)
+      }
+      
+      localStorage.setItem('userPartyId', result.partyId)
+      localStorage.setItem('userEmail', user.email || email)
+      
+      if (result.isExisting) {
+        toast.success('Welcome back! Redirecting to dashboard...')
+      } else {
+        toast.success('Successfully onboarded to Canton Network!')
+      }
+      
+      router.push('/dashboard')
+    } catch (error) {
+      console.error('Onboarding error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      toast.error(`Failed to onboard: ${errorMessage}`)
+    } finally {
+      setIsOnboarding(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p className="mt-4 text-muted-foreground">Loading...</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="min-h-screen bg-background">
+      {/* Header with theme toggle */}
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="container mx-auto px-4 py-16">
+        {/* Header */}
+        <div className="mb-16 text-center">
+          <div className="mb-6 flex items-center justify-center space-x-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Zap className="h-8 w-8" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold">Canton Network</h1>
+              <p className="text-xl text-muted-foreground">Tokenization Platform</p>
+            </div>
+          </div>
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            Enterprise-grade tokenization on Canton Network with Auth0 security. Create, mint, transfer, and manage digital assets with institutional-level compliance.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Features Overview */}
+        <div className="mb-16 grid gap-8 grid-cols-3">
+          <div className="landing-feature-card">
+            <div className="landing-feature-icon bg-blue-100 dark:bg-blue-900">
+              <Shield className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="mb-3 text-xl font-semibold">Secure Authentication</h3>
+            <p className="text-muted-foreground">Enterprise-grade security with Auth0 authentication and multi-factor protection</p>
+          </div>
+          
+          <div className="landing-feature-card">
+            <div className="landing-feature-icon bg-green-100 dark:bg-green-900">
+              <Zap className="h-8 w-8 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="mb-3 text-xl font-semibold">Canton Network</h3>
+            <p className="text-muted-foreground">Built on Canton's privacy-preserving blockchain with institutional compliance</p>
+          </div>
+          
+          <div className="landing-feature-card">
+            <div className="landing-feature-icon bg-purple-100 dark:bg-purple-900">
+              <Users className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+            </div>
+            <h3 className="mb-3 text-xl font-semibold">Multi-Party System</h3>
+            <p className="text-muted-foreground">Seamless token operations between multiple parties and organizations</p>
+          </div>
         </div>
-      </main>
+
+        {/* Authentication & Onboarding */}
+        <div className="mx-auto max-w-lg">
+          <div className="card enhanced-auth-card">
+            <div className="card-content">
+              {!user ? (
+                <div className="auth-content">
+                  <div className="auth-header">
+                    <h2 className="auth-title">Welcome to Canton Network</h2>
+                    <p className="auth-description">
+                      Sign in with Auth0 to access the enterprise tokenization platform
+                    </p>
+                  </div>
+                  
+                  <button 
+                    className="btn btn-primary btn-large w-full"
+                    onClick={() => window.location.href = '/auth/login'}
+                  >
+                    <Shield className="mr-2 h-5 w-5" />
+                    Sign In with Auth0
+                  </button>
+                  
+                  <p className="auth-footer">
+                    Secure authentication powered by Auth0 Enterprise
+                  </p>
+                </div>
+              ) : (
+                <div className="onboarding-content">
+                  <div className="auth-header">
+                    <h2 className="auth-title">Complete Your Setup</h2>
+                    <p className="auth-description">
+                      Welcome {user.name}! Generate your Party ID to access Canton Network
+                    </p>
+                  </div>
+
+                  <div className="alert-success">
+                    <Shield className="h-5 w-5" />
+                    <div>
+                      <div className="font-medium">Authenticated Successfully</div>
+                      <div className="text-sm">Email: {user.email}</div>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleOnboarding} className="onboarding-form">
+                    <div className="form-group">
+                      <label htmlFor="email" className="form-label">Email Address</label>
+                      <input
+                        id="email"
+                        type="email"
+                        value={user.email || email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={!!user.email || isOnboarding}
+                        required
+                        className="form-input"
+                      />
+                      <p className="form-help">
+                        This email will be used to generate your Canton Network Party ID
+                      </p>
+                    </div>
+
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary btn-large w-full"
+                      disabled={isOnboarding}
+                    >
+                      {isOnboarding ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Generating Party ID...
+                        </>
+                      ) : (
+                        <>
+                          Generate Party ID
+                          <ArrowRight className="ml-2 h-5 w-5" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="text-center">
+                    <button 
+                      onClick={() => window.location.href = '/auth/logout'}
+                      className="btn btn-secondary btn-small"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* System Information */}
+        <div className="mx-auto mt-16 max-w-4xl">
+          <div className="card enhanced-auth-card">
+            <div className="card-header text-center">
+              <h3 className="card-title text-xl">Platform Information</h3>
+            </div>
+            <div className="card-content">
+              <div className="system-grid">
+                <div className="system-item">
+                  <span className="system-label">Network Environment</span>
+                  <span className="system-value">Canton Testnet</span>
+                </div>
+                <div className="system-item">
+                  <span className="system-label">Token Standard</span>
+                  <span className="system-value">CIP0056 Compliant</span>
+                </div>
+                <div className="system-item">
+                  <span className="system-label">Authentication</span>
+                  <span className="system-value">Auth0 Enterprise</span>
+                </div>
+                <div className="system-item">
+                  <span className="system-label">Security Level</span>
+                  <span className="system-value flex items-center">
+                    <div className="mr-2 h-2 w-2 rounded-full bg-green-500"></div>
+                    Enterprise Grade
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  );
+  )
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p className="mt-4 text-muted-foreground">Loading...</p>
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
+  )
 }

@@ -1,0 +1,160 @@
+-- CIP0056 Token Standard Implementation for Canton Network
+-- This is a simplified DAML implementation for the MVP demo
+
+module CIP0056Token where
+
+import Daml.Script
+
+-- Token metadata following CIP0056 standard
+template TokenMetadata
+  with
+    issuer : Party
+    tokenName : Text
+    currency : Text
+    quantityPrecision : Int
+    pricePrecision : Int
+    totalSupply : Decimal
+  where
+    signatory issuer
+    
+    key (issuer, tokenName) : (Party, Text)
+    maintainer key._1
+
+-- Individual token holding
+template TokenHolding
+  with
+    issuer : Party
+    owner : Party
+    tokenName : Text
+    amount : Decimal
+  where
+    signatory issuer, owner
+    
+    key (issuer, owner, tokenName) : (Party, Party, Text)
+    maintainer key._1
+    
+    choice Transfer : ContractId TokenHolding
+      with
+        newOwner : Party
+        transferAmount : Decimal
+      controller owner
+      do
+        assertMsg "Insufficient balance" (transferAmount <= amount)
+        
+        -- Update current holding
+        if transferAmount == amount
+        then do
+          -- Transfer all tokens
+          create this with owner = newOwner
+        else do
+          -- Partial transfer - create new holding for recipient
+          create this with owner = newOwner, amount = transferAmount
+          create this with amount = amount - transferAmount
+    
+    choice Burn : ()
+      with
+        burnAmount : Decimal
+      controller owner
+      do
+        assertMsg "Insufficient balance" (burnAmount <= amount)
+        
+        -- Update metadata to reduce total supply
+        (metadataId, metadata) <- fetchByKey @TokenMetadata (issuer, tokenName)
+        exercise metadataId UpdateTotalSupply with newSupply = metadata.totalSupply - burnAmount
+        
+        -- Update holding
+        if burnAmount == amount
+        then return () -- Contract is archived
+        else do
+          create this with amount = amount - burnAmount
+          return ()
+
+-- Mint new tokens (only issuer can mint)
+template MintRequest
+  with
+    issuer : Party
+    recipient : Party
+    tokenName : Text
+    mintAmount : Decimal
+  where
+    signatory issuer
+    
+    choice ExecuteMint : ContractId TokenHolding
+      controller issuer
+      do
+        -- Update metadata to increase total supply
+        (metadataId, metadata) <- fetchByKey @TokenMetadata (issuer, tokenName)
+        exercise metadataId UpdateTotalSupply with newSupply = metadata.totalSupply + mintAmount
+        
+        -- Create or update recipient's holding
+        optionalHolding <- lookupByKey @TokenHolding (issuer, recipient, tokenName)
+        case optionalHolding of
+          None -> create TokenHolding with
+            issuer = issuer
+            owner = recipient
+            tokenName = tokenName
+            amount = mintAmount
+          Some holdingId -> do
+            holding <- fetch holdingId
+            archive holdingId
+            create holding with amount = holding.amount + mintAmount
+
+-- Update total supply (internal choice)
+template UpdateTotalSupply
+  with
+    metadataId : ContractId TokenMetadata
+    newSupply : Decimal
+  where
+    signatory []
+    
+    choice UpdateSupply : ContractId TokenMetadata
+      controller []
+      do
+        metadata <- fetch metadataId
+        archive metadataId
+        create metadata with totalSupply = newSupply
+
+-- Initialize a new token
+initializeToken : Party -> Text -> Text -> Int -> Int -> Script (ContractId TokenMetadata)
+initializeToken issuer name currency qPrec pPrec = do
+  submit issuer do
+    createCmd TokenMetadata with
+      issuer = issuer
+      tokenName = name
+      currency = currency
+      quantityPrecision = qPrec
+      pricePrecision = pPrec
+      totalSupply = 0.0
+
+-- Mint tokens to a recipient
+mintTokens : Party -> Party -> Text -> Decimal -> Script (ContractId TokenHolding)
+mintTokens issuer recipient tokenName amount = do
+  mintRequestId <- submit issuer do
+    createCmd MintRequest with
+      issuer = issuer
+      recipient = recipient
+      tokenName = tokenName
+      mintAmount = amount
+  
+  submit issuer do
+    exerciseCmd mintRequestId ExecuteMint
+
+-- Transfer tokens between parties
+transferTokens : Party -> Party -> Text -> Decimal -> Script (ContractId TokenHolding)
+transferTokens from to tokenName amount = do
+  (holdingId, _) <- submit from do
+    fetchByKeyCmd @TokenHolding (from, from, tokenName)
+  
+  submit from do
+    exerciseCmd holdingId Transfer with
+      newOwner = to
+      transferAmount = amount
+
+-- Burn tokens
+burnTokens : Party -> Text -> Decimal -> Script ()
+burnTokens owner tokenName amount = do
+  (holdingId, _) <- submit owner do
+    fetchByKeyCmd @TokenHolding (owner, owner, tokenName)
+  
+  submit owner do
+    exerciseCmd holdingId Burn with burnAmount = amount

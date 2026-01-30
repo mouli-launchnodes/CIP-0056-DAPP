@@ -1,0 +1,91 @@
+[
+  {
+    "id": "p9qh5drvk",
+    "email": "system@canton-demo.com",
+    "partyId": "system-owner-party-id",
+    "createdAt": "2026-01-30T07:41:28.773Z",
+    "updatedAt": "2026-01-30T07:41:28.773Z"
+  },
+  {
+    "id": "2nxnqe4p6",
+    "email": "party-1769583752037-qmfa7mwse@canton-demo.com",
+    "partyId": "party-1769583752037-qmfa7mwse",
+    "createdAt": "2026-01-30T07:44:08.162Z",
+    "updatedAt": "2026-01-30T07:44:08.162Z"
+  },
+  {
+    "id": "qqmsgcwxn",
+    "email": "party-1769756550989-4206zgjcf@canton-demo.com",
+    "partyId": "party-1769756550989-4206zgjcf",
+    "createdAt": "2026-01-30T07:44:39.477Z",
+    "updatedAt": "2026-01-30T07:44:39.477Z"
+  },
+  {
+    "id": "mcpglyl6j",
+    "email": "party-1769688248387-oyf74j1bx@canton-demo.com",
+    "partyId": "party-1769688248387-oyf74j1bx",
+    "createdAt": "2026-01-30T08:48:58.324Z",
+    "updatedAt": "2026-01-30T08:48:58.324Z"
+  },
+  {
+    "id": "ryrkjf81a",
+    "email": "mouli.c@launchnodes.com",
+    "partyId": "party-1769764952609-d96qox9vg",
+    "auth0UserId": "google-oauth2|118255339760369558210",
+    "name": "Mouli Chakraborty",
+    "profilePicture": "https://lh3.googleusercontent.com/a/ACg8ocI65ILtd2gke_RT13uzb9Vms6Bf21sFavn12g5lMQFZY-bDLA=s96-c",
+    "createdAt": "2026-01-30T09:22:33.610Z",
+    "updatedAt": "2026-01-30T09:22:33.610Z"
+  },
+  {
+    "id": "8fqoij1jn",
+    "email": "test-party-123@canton-demo.com",
+    "partyId": "test-party-123",
+    "createdAt": "2026-01-30T09:25:40.647Z",
+    "updatedAt": "2026-01-30T09:25:40.647Z"
+  },
+  {
+    "id": "t39mvem2h",
+    "email": "test-party-456@canton-demo.com",
+    "partyId": "test-party-456",
+    "createdAt": "2026-01-30T09:29:09.391Z",
+    "updatedAt": "2026-01-30T09:29:09.391Z"
+  },
+  {
+    "id": "ju8yu4efi",
+    "email": "party-1769583658308-z4gbhc062@canton-demo.com",
+    "partyId": "party-1769583658308-z4gbhc062",
+    "createdAt": "2026-01-30T09:43:42.544Z",
+    "updatedAt": "2026-01-30T09:43:42.544Z"
+  },
+  {
+    "id": "8fngrl9mh",
+    "email": "test@example.com",
+    "partyId": "party-1769771279606-tfy0uf6di",
+    "auth0UserId": "test-user-123",
+    "name": "Test User",
+    "profilePicture": null,
+    "createdAt": "2026-01-30T11:08:00.608Z",
+    "updatedAt": "2026-01-30T11:08:00.608Z"
+  },
+  {
+    "id": "uxg4vgoi8",
+    "email": "yieldproof1@gmail.com",
+    "partyId": "party-1769771325337-g7rwfvapd",
+    "auth0UserId": "google-oauth2|114600717241554659106",
+    "name": "YieldProof",
+    "profilePicture": "https://lh3.googleusercontent.com/a/ACg8ocKh_mcM9W_2ONYuqglwA6Z7VqtYJwyvaim7jZcffNe1ZQf3JQ=s96-c",
+    "createdAt": "2026-01-30T11:08:46.339Z",
+    "updatedAt": "2026-01-30T11:08:46.339Z"
+  },
+  {
+    "id": "670fb7f5w",
+    "email": "chakrabortymouli18@gmail.com",
+    "partyId": "party-1769771557575-bq9hmqavl",
+    "auth0UserId": "google-oauth2|117477874238344198417",
+    "name": "Mouli Chakraborty",
+    "profilePicture": "https://lh3.googleusercontent.com/a/ACg8ocLWvtQoUlDKPOKSE3JJSndrN4rvqXRK0G88FWP53V9GaYHg9yb9RQ=s96-c",
+    "createdAt": "2026-01-30T11:12:38.577Z",
+    "updatedAt": "2026-01-30T11:12:38.577Z"
+  }
+]

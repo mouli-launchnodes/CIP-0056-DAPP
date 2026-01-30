@@ -1,0 +1,82 @@
+[
+  {
+    "id": "dpapq95vm",
+    "userId": "2nxnqe4p6",
+    "tokenId": "8mg40pxwm",
+    "totalBalance": 1,
+    "freeCollateral": 1,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T07:44:09.668Z",
+    "updatedAt": "2026-01-30T07:44:09.668Z"
+  },
+  {
+    "id": "kh9j62zim",
+    "userId": "qqmsgcwxn",
+    "tokenId": "nm1xdtpst",
+    "totalBalance": 0.9249999999999999,
+    "freeCollateral": 0.9249999999999999,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T08:28:45.746Z",
+    "updatedAt": "2026-01-30T09:44:40.310Z"
+  },
+  {
+    "id": "wgbpc0ljr",
+    "userId": "2nxnqe4p6",
+    "tokenId": "nm1xdtpst",
+    "totalBalance": 2,
+    "freeCollateral": 2,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T08:39:34.067Z",
+    "updatedAt": "2026-01-30T09:43:04.445Z"
+  },
+  {
+    "id": "89fan42vp",
+    "userId": "mcpglyl6j",
+    "tokenId": "nm1xdtpst",
+    "totalBalance": 0.05,
+    "freeCollateral": 0.05,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T08:48:59.831Z",
+    "updatedAt": "2026-01-30T08:48:59.831Z"
+  },
+  {
+    "id": "c1x9bpnx7",
+    "userId": "8fqoij1jn",
+    "tokenId": "nm1xdtpst",
+    "totalBalance": 4,
+    "freeCollateral": 4,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T09:25:42.160Z",
+    "updatedAt": "2026-01-30T09:40:50.067Z"
+  },
+  {
+    "id": "gdxsp2vxg",
+    "userId": "t39mvem2h",
+    "tokenId": "nm1xdtpst",
+    "totalBalance": 3,
+    "freeCollateral": 3,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T09:29:10.918Z",
+    "updatedAt": "2026-01-30T09:29:10.918Z"
+  },
+  {
+    "id": "e2twq5awu",
+    "userId": "qqmsgcwxn",
+    "tokenId": "r1vk1azm2",
+    "totalBalance": 0.04,
+    "freeCollateral": 0.04,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T09:34:09.444Z",
+    "updatedAt": "2026-01-30T09:34:09.444Z"
+  },
+  {
+    "id": "geo9tf3ds",
+    "userId": "ryrkjf81a",
+    "tokenId": "nm1xdtpst",
+    "totalBalance": 0.02,
+    "freeCollateral": 0.02,
+    "lockedCollateral": 0,
+    "createdAt": "2026-01-30T09:44:40.316Z",
+    "updatedAt": "2026-01-30T09:44:40.316Z"
+  }
+]
