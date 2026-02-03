@@ -1,6 +1,6 @@
 'use client'
 
-import { Copy, LogOut, User, Menu, X } from 'lucide-react'
+import { Copy, LogOut, User, Menu, X, Bell } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { ThemeToggle } from './theme-toggle'
@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { useReducedMotion, getAnimationConfig, getSpringConfig } from '@/hooks/use-reduced-motion'
+import { NotificationDropdown } from '@/components/notification-dropdown'
 
 interface TopNavbarProps {
   userPartyId: string
@@ -68,7 +69,7 @@ export function TopNavbar({ userPartyId, onSidebarToggle, isMobileMenuOpen, onMo
     initial: { y: -100, opacity: 0 },
     animate: { y: 0, opacity: 1 },
     transition: { 
-      type: 'spring', 
+      type: 'spring' as const, 
       stiffness: 400, 
       damping: 30,
       duration: 0.6 
@@ -78,7 +79,12 @@ export function TopNavbar({ userPartyId, onSidebarToggle, isMobileMenuOpen, onMo
   const buttonMotionProps = prefersReducedMotion ? {} : {
     whileHover: { scale: 1.05 },
     whileTap: { scale: 0.95 },
-    transition: springConfig
+    transition: {
+      type: 'spring' as const,
+      stiffness: springConfig.stiffness,
+      damping: springConfig.damping,
+      mass: springConfig.mass
+    }
   }
 
   return (
@@ -136,7 +142,7 @@ export function TopNavbar({ userPartyId, onSidebarToggle, isMobileMenuOpen, onMo
                   className="party-id-display"
                   {...(prefersReducedMotion ? {} : {
                     whileHover: { scale: 1.02 },
-                    transition: springConfig
+                    transition: { type: 'spring' as const, stiffness: 400, damping: 25 }
                   })}
                 >
                   <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -149,7 +155,8 @@ export function TopNavbar({ userPartyId, onSidebarToggle, isMobileMenuOpen, onMo
                     title="Copy Party ID"
                     {...(prefersReducedMotion ? {} : {
                       whileHover: { scale: 1.1 },
-                      whileTap: { scale: 0.9 }
+                      whileTap: { scale: 0.9 },
+                      transition: { type: 'spring' as const, stiffness: 400, damping: 25 }
                     })}
                   >
                     <Copy className="h-3 w-3" />
@@ -177,6 +184,9 @@ export function TopNavbar({ userPartyId, onSidebarToggle, isMobileMenuOpen, onMo
 
             {/* Theme Toggle */}
             <ThemeToggle />
+
+            {/* Notification Dropdown */}
+            <NotificationDropdown userPartyId={userPartyId} />
 
             {/* User Profile Dropdown - Mobile optimized */}
             {user && (

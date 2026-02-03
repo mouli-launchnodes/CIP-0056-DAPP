@@ -3,17 +3,17 @@ import { cantonSDK } from '@/lib/canton'
 
 export async function GET() {
   try {
-    console.log('Testing Canton Network authentication...')
+    console.log('Testing Canton Network connection...')
     
-    // Test the authentication status
-    const authStatus = cantonSDK.getAuthStatus()
+    // Test the DAML ledger connection
+    const isConnected = await cantonSDK.isConnected()
     
-    console.log('Canton auth status:', authStatus)
+    console.log('Canton connection status:', isConnected)
     
     return NextResponse.json({
       success: true,
-      message: 'Canton Network authentication test',
-      authStatus,
+      message: 'Canton Network connection test',
+      isConnected,
       timestamp: new Date().toISOString()
     })
     

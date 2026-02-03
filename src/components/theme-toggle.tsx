@@ -32,7 +32,12 @@ export function ThemeToggle() {
   const motionProps = prefersReducedMotion ? {} : {
     whileHover: { scale: 1.05 },
     whileTap: { scale: 0.95 },
-    transition: springConfig
+    transition: {
+      type: "spring" as const,
+      stiffness: springConfig.stiffness,
+      damping: springConfig.damping,
+      mass: springConfig.mass
+    }
   }
 
   return (

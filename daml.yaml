@@ -1,0 +1,13 @@
+sdk-version: 2.8.0
+name: cip0056-token
+source: contracts
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+
+build-options:
+  - --target=1.15
+
+start-navigator: false

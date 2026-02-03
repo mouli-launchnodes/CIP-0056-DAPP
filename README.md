@@ -10,6 +10,7 @@ A comprehensive enterprise-grade tokenization platform built on Canton Network, 
 - **Token Transfer**: Atomic transactions between parties with instant verification
 - **Token Burning**: Secure token destruction with multi-step confirmation
 - **Holdings Management**: Real-time balance monitoring and collateral tracking
+- **Real DAML Integration**: Actual Canton Network ledger operations (not mock data)
 
 ### Enterprise Security
 - **Dual Authentication**: Auth0 + Canton Network OIDC integration
@@ -102,13 +103,51 @@ NEXTAUTH_SECRET='your-nextauth-secret'
 
 ### 4. Run the Development Server
 
+**Option 1: Full DAML Integration (Recommended)**
+```bash
+npm run dev:full
+```
+This starts both the DAML sandbox and Next.js development server.
+
+**Option 2: Next.js Only (Mock Data)**
 ```bash
 npm run dev
-# or
-yarn dev
+```
+
+**Option 3: Separate Terminals**
+```bash
+# Terminal 1 - Start DAML Sandbox
+npm run daml:start
+
+# Terminal 2 - Start Next.js
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 5. DAML Integration Setup
+
+For real Canton Network integration with DAML:
+
+1. **Install DAML SDK** (if not already installed):
+   ```bash
+   curl -sSL https://get.daml.com/ | sh
+   ```
+
+2. **Build DAML contracts**:
+   ```bash
+   npm run daml:build
+   ```
+
+3. **Start with DAML integration**:
+   ```bash
+   npm run dev:full
+   ```
+
+4. **Access DAML Navigator** (optional):
+   Open [http://localhost:7500](http://localhost:7500) to inspect contracts.
+
+See [DAML Integration Setup Guide](./DAML_INTEGRATION_SETUP.md) for detailed instructions.
 
 ## 📖 Documentation
 
@@ -125,6 +164,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Development
 - [**DAML Contract Documentation**](./DAML_CONTRACT_DOCUMENTATION.md) - Smart contract details
+- [**DAML Integration Setup**](./DAML_INTEGRATION_SETUP.md) - Real DAML ledger integration
 - [**UI Architecture**](./UI_ARCHITECTURE_IMPLEMENTATION.md) - Frontend implementation
 - [**Troubleshooting**](./TROUBLESHOOTING_ONBOARDING.md) - Common issues and solutions
 

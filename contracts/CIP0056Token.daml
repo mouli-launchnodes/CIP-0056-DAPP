@@ -1,5 +1,5 @@
 -- CIP0056 Token Standard Implementation for Canton Network
--- This is a simplified DAML implementation for the MVP demo
+-- Real DAML implementation with proper party management and token operations
 
 module CIP0056Token where
 
@@ -14,13 +14,21 @@ template TokenMetadata
     quantityPrecision : Int
     pricePrecision : Int
     totalSupply : Decimal
+    description : Text
   where
     signatory issuer
     
     key (issuer, tokenName) : (Party, Text)
     maintainer key._1
 
--- Individual token holding
+    choice UpdateTotalSupply : ContractId TokenMetadata
+      with
+        newSupply : Decimal
+      controller issuer
+      do
+        create this with totalSupply = newSupply
+
+-- Individual token holding (single signatory for easier management)
 template TokenHolding
   with
     issuer : Party
@@ -28,48 +36,131 @@ template TokenHolding
     tokenName : Text
     amount : Decimal
   where
-    signatory issuer, owner
+    signatory issuer
+    observer owner
     
     key (issuer, owner, tokenName) : (Party, Party, Text)
     maintainer key._1
     
-    choice Transfer : ContractId TokenHolding
+    choice ProposeTransfer : ContractId TransferProposal
       with
         newOwner : Party
         transferAmount : Decimal
       controller owner
       do
         assertMsg "Insufficient balance" (transferAmount <= amount)
+        assertMsg "Transfer amount must be positive" (transferAmount > 0.0)
         
-        -- Update current holding
-        if transferAmount == amount
-        then do
-          -- Transfer all tokens
-          create this with owner = newOwner
-        else do
-          -- Partial transfer - create new holding for recipient
-          create this with owner = newOwner, amount = transferAmount
-          create this with amount = amount - transferAmount
+        create TransferProposal with
+          issuer = issuer
+          currentOwner = owner
+          newOwner = newOwner
+          tokenName = tokenName
+          transferAmount = transferAmount
+          holdingId = self
     
-    choice Burn : ()
+    choice Burn : Optional (ContractId TokenHolding)
       with
         burnAmount : Decimal
       controller owner
       do
         assertMsg "Insufficient balance" (burnAmount <= amount)
+        assertMsg "Burn amount must be positive" (burnAmount > 0.0)
         
-        -- Update metadata to reduce total supply
+        -- Update holding or archive if fully burned
+        if burnAmount == amount
+        then return None -- Contract is archived
+        else do
+          remainingHolding <- create this with amount = amount - burnAmount
+          return (Some remainingHolding)
+    
+    choice IssuerBurn : Optional (ContractId TokenHolding)
+      with
+        burnAmount : Decimal
+      controller issuer
+      do
+        assertMsg "Insufficient balance" (burnAmount <= amount)
+        assertMsg "Burn amount must be positive" (burnAmount > 0.0)
+        
+        -- Update metadata to reduce total supply (issuer can do key lookups)
         (metadataId, metadata) <- fetchByKey @TokenMetadata (issuer, tokenName)
         exercise metadataId UpdateTotalSupply with newSupply = metadata.totalSupply - burnAmount
         
-        -- Update holding
+        -- Update holding or archive if fully burned
         if burnAmount == amount
-        then return () -- Contract is archived
+        then return None -- Contract is archived
         else do
-          create this with amount = amount - burnAmount
-          return ()
+          remainingHolding <- create this with amount = amount - burnAmount
+          return (Some remainingHolding)
 
--- Mint new tokens (only issuer can mint)
+    -- Direct transfer choice that issuer can use (bypasses proposal-acceptance)
+    choice IssuerTransfer : (ContractId TokenHolding, Optional (ContractId TokenHolding))
+      with
+        newOwner : Party
+        transferAmount : Decimal
+      controller issuer
+      do
+        assertMsg "Insufficient balance" (transferAmount <= amount)
+        assertMsg "Transfer amount must be positive" (transferAmount > 0.0)
+        
+        -- Create new holding for recipient
+        newHolding <- create TokenHolding with
+          issuer = issuer
+          owner = newOwner
+          tokenName = tokenName
+          amount = transferAmount
+        
+        -- Create remaining holding for sender if any
+        if transferAmount == amount
+        then return (newHolding, None)
+        else do
+          remainingHolding <- create this with amount = amount - transferAmount
+          return (newHolding, Some remainingHolding)
+
+-- Transfer proposal template for two-party transfers
+template TransferProposal
+  with
+    issuer : Party
+    currentOwner : Party
+    newOwner : Party
+    tokenName : Text
+    transferAmount : Decimal
+    holdingId : ContractId TokenHolding
+  where
+    signatory issuer
+    observer currentOwner, newOwner
+    
+    choice AcceptTransfer : (ContractId TokenHolding, Optional (ContractId TokenHolding))
+      controller newOwner
+      do
+        -- Archive the original holding
+        holding <- fetch holdingId
+        archive holdingId
+        
+        -- Create new holding for recipient
+        newHolding <- create TokenHolding with
+          issuer = issuer
+          owner = newOwner
+          tokenName = tokenName
+          amount = transferAmount
+        
+        -- Create remaining holding for sender if any
+        if transferAmount == holding.amount
+        then return (newHolding, None)
+        else do
+          remainingHolding <- create TokenHolding with
+            issuer = issuer
+            owner = currentOwner
+            tokenName = tokenName
+            amount = holding.amount - transferAmount
+          return (newHolding, Some remainingHolding)
+    
+    choice RejectTransfer : ()
+      controller newOwner
+      do
+        return ()  -- Simply archive the proposal
+
+-- Mint request template for controlled minting
 template MintRequest
   with
     issuer : Party
@@ -82,6 +173,8 @@ template MintRequest
     choice ExecuteMint : ContractId TokenHolding
       controller issuer
       do
+        assertMsg "Mint amount must be positive" (mintAmount > 0.0)
+        
         -- Update metadata to increase total supply
         (metadataId, metadata) <- fetchByKey @TokenMetadata (issuer, tokenName)
         exercise metadataId UpdateTotalSupply with newSupply = metadata.totalSupply + mintAmount
@@ -99,24 +192,22 @@ template MintRequest
             archive holdingId
             create holding with amount = holding.amount + mintAmount
 
--- Update total supply (internal choice)
-template UpdateTotalSupply
+-- Party registration template for onboarding
+template PartyRegistration
   with
-    metadataId : ContractId TokenMetadata
-    newSupply : Decimal
+    party : Party
+    email : Text
+    displayName : Text
+    registrationTime : Time
   where
-    signatory []
+    signatory party
     
-    choice UpdateSupply : ContractId TokenMetadata
-      controller []
-      do
-        metadata <- fetch metadataId
-        archive metadataId
-        create metadata with totalSupply = newSupply
+    key party : Party
+    maintainer key
 
 -- Initialize a new token
-initializeToken : Party -> Text -> Text -> Int -> Int -> Script (ContractId TokenMetadata)
-initializeToken issuer name currency qPrec pPrec = do
+initializeToken : Party -> Text -> Text -> Int -> Int -> Text -> Script (ContractId TokenMetadata)
+initializeToken issuer name currency qPrec pPrec desc = do
   submit issuer do
     createCmd TokenMetadata with
       issuer = issuer
@@ -125,6 +216,18 @@ initializeToken issuer name currency qPrec pPrec = do
       quantityPrecision = qPrec
       pricePrecision = pPrec
       totalSupply = 0.0
+      description = desc
+
+-- Register a new party
+registerParty : Party -> Text -> Text -> Script (ContractId PartyRegistration)
+registerParty party email displayName = do
+  now <- getTime
+  submit party do
+    createCmd PartyRegistration with
+      party = party
+      email = email
+      displayName = displayName
+      registrationTime = now
 
 -- Mint tokens to a recipient
 mintTokens : Party -> Party -> Text -> Decimal -> Script (ContractId TokenHolding)
@@ -139,22 +242,71 @@ mintTokens issuer recipient tokenName amount = do
   submit issuer do
     exerciseCmd mintRequestId ExecuteMint
 
--- Transfer tokens between parties
+-- Transfer tokens between parties using proposal-acceptance pattern
 transferTokens : Party -> Party -> Text -> Decimal -> Script (ContractId TokenHolding)
 transferTokens from to tokenName amount = do
-  (holdingId, _) <- submit from do
-    fetchByKeyCmd @TokenHolding (from, from, tokenName)
-  
-  submit from do
-    exerciseCmd holdingId Transfer with
-      newOwner = to
-      transferAmount = amount
+  -- Find the issuer by looking up existing holdings
+  holdings <- query @TokenHolding from
+  case find (\(_, h) -> h.owner == from && h.tokenName == tokenName) holdings of
+    None -> abort "No holding found for transfer"
+    Some (holdingId, holding) -> do
+      -- Step 1: Create transfer proposal
+      proposalId <- submit from do
+        exerciseCmd holdingId ProposeTransfer with
+          newOwner = to
+          transferAmount = amount
+      
+      -- Step 2: Recipient accepts the transfer
+      (newHolding, _) <- submit to do
+        exerciseCmd proposalId AcceptTransfer
+      
+      return newHolding
 
 -- Burn tokens
 burnTokens : Party -> Text -> Decimal -> Script ()
 burnTokens owner tokenName amount = do
-  (holdingId, _) <- submit owner do
-    fetchByKeyCmd @TokenHolding (owner, owner, tokenName)
+  -- Find the holding to burn from
+  holdings <- query @TokenHolding owner
+  case find (\(_, h) -> h.owner == owner && h.tokenName == tokenName) holdings of
+    None -> abort "No holding found for burning"
+    Some (holdingId, _) -> do
+      submit owner do
+        exerciseCmd holdingId Burn with burnAmount = amount
+      return ()
+
+-- Get all holdings for a party
+getHoldingsForParty : Party -> Script [(ContractId TokenHolding, TokenHolding)]
+getHoldingsForParty party = do
+  query @TokenHolding party
+
+-- Get token metadata
+getTokenMetadata : Party -> Text -> Script (Optional (ContractId TokenMetadata, TokenMetadata))
+getTokenMetadata issuer tokenName = do
+  metadataContracts <- query @TokenMetadata issuer
+  case find (\(_, metadata) -> metadata.issuer == issuer && metadata.tokenName == tokenName) metadataContracts of
+    None -> return None
+    Some result -> return (Some result)
+
+-- Demo setup script
+setupDemo : Script ()
+setupDemo = do
+  -- Allocate parties
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  tokenIssuer <- allocatePartyWithHint "TokenIssuer" (PartyIdHint "TokenIssuer")
   
-  submit owner do
-    exerciseCmd holdingId Burn with burnAmount = amount
+  -- Register parties
+  registerParty alice "alice@example.com" "Alice"
+  registerParty bob "bob@example.com" "Bob"
+  registerParty tokenIssuer "issuer@example.com" "Token Issuer"
+  
+  -- Initialize a token
+  initializeToken tokenIssuer "DEMO" "USD" 2 2 "Demo token for testing"
+  
+  -- Mint some tokens to Alice
+  mintTokens tokenIssuer alice "DEMO" 1000.0
+  
+  -- Transfer some tokens from Alice to Bob
+  transferTokens alice bob "DEMO" 250.0
+  
+  return ()

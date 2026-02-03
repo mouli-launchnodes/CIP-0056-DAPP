@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mockDb } from '@/lib/mock-db'
-import { cantonSDK } from '@/lib/canton'
+import { damlClient } from '@/lib/daml-client'
 import { mintTokensSchema } from '@/lib/validations'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,12 +12,48 @@ export async function POST(request: NextRequest) {
     const validatedData = mintTokensSchema.parse(body)
     console.log('Validated data:', validatedData)
     
-    // Get token information
-    const token = await mockDb.token.findUnique({
-      where: { id: validatedData.tokenId }
-    })
+    // Get authenticated user from session
+    const cookieStore = await cookies()
+    const userCookie = cookieStore.get('auth0_user')
     
-    console.log('Found token:', token)
+    if (!userCookie) {
+      return NextResponse.json(
+        { error: 'Authentication required. Please log in first.' },
+        { status: 401 }
+      )
+    }
+    
+    let sessionUser
+    try {
+      sessionUser = JSON.parse(userCookie.value)
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid session. Please log in again.' },
+        { status: 401 }
+      )
+    }
+    
+    // Get party ID from session (set during onboarding)
+    const userEmail = sessionUser.email
+    const sessionPartyId = sessionUser.partyId
+    
+    if (!userEmail) {
+      return NextResponse.json(
+        { error: 'User email not found in session' },
+        { status: 400 }
+      )
+    }
+    
+    if (!sessionPartyId) {
+      return NextResponse.json(
+        { error: 'Party ID not found in session. Please complete onboarding first.' },
+        { status: 400 }
+      )
+    }
+    
+    // Get all tokens to find the one we want to mint
+    const allTokens = await damlClient.getAllTokens()
+    const token = allTokens.find(t => t.contractId === validatedData.tokenId)
     
     if (!token) {
       return NextResponse.json(
@@ -26,107 +62,43 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Check if recipient Party ID exists, if not create a user for it
-    let recipient = await mockDb.user.findUnique({
-      where: { partyId: validatedData.recipientPartyId }
-    })
-    
-    console.log('Found recipient:', recipient)
-    
-    if (!recipient) {
-      // Create a new user for the recipient Party ID
-      recipient = await mockDb.user.create({
-        data: {
-          email: `${validatedData.recipientPartyId}@canton-demo.com`,
-          partyId: validatedData.recipientPartyId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      })
-      console.log('Created new recipient:', recipient)
+    // Verify that the authenticated user is the issuer of this token
+    if (token.metadata.issuer !== sessionPartyId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. You can only mint tokens that you created.' },
+        { status: 403 }
+      )
     }
     
-    // Mint tokens using Canton SDK
-    console.log('Minting tokens with Canton SDK...')
-    const transactionResult = await cantonSDK.mintTokens({
-      contractId: token.id,
-      recipientPartyId: validatedData.recipientPartyId,
+    console.log('Found token:', token)
+    console.log(`Minting as authenticated user: ${userEmail} (Party: ${sessionPartyId})`)
+    
+    // Mint tokens using DAML ledger
+    console.log('Minting tokens via DAML ledger...')
+    const mintResult = await damlClient.mintTokens({
+      issuer: sessionPartyId,
+      recipient: validatedData.recipientPartyId,
+      tokenName: token.metadata.tokenName,
       amount: validatedData.amount
     })
     
-    console.log('Canton SDK result:', transactionResult)
-    
-    // Create transaction record
-    const transaction = await mockDb.transaction.create({
-      data: {
-        type: 'MINT',
-        amount: parseFloat(validatedData.amount),
-        toPartyId: validatedData.recipientPartyId,
-        transactionHash: transactionResult.transactionHash,
-        status: transactionResult.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
-        userId: recipient.id,
-        tokenId: token.id
-      }
-    })
-    
-    console.log('Created transaction:', transaction)
-    
-    // Update or create holding
-    const existingHolding = await mockDb.holding.findUnique({
-      where: {
-        userId_tokenId: {
-          userId: recipient.id,
-          tokenId: token.id
-        }
-      }
-    })
-    
-    console.log('Existing holding:', existingHolding)
-    
-    if (existingHolding) {
-      await mockDb.holding.update({
-        where: { id: existingHolding.id },
-        data: {
-          totalBalance: {
-            increment: parseFloat(validatedData.amount)
-          },
-          freeCollateral: {
-            increment: parseFloat(validatedData.amount)
-          }
-        }
-      })
-    } else {
-      await mockDb.holding.create({
-        data: {
-          userId: recipient.id,
-          tokenId: token.id,
-          totalBalance: parseFloat(validatedData.amount),
-          freeCollateral: parseFloat(validatedData.amount),
-          lockedCollateral: 0
-        }
-      })
-    }
-    
-    // Update token total supply
-    await mockDb.token.update({
-      where: { id: token.id },
-      data: {
-        totalSupply: {
-          increment: parseFloat(validatedData.amount)
-        }
-      }
-    })
-    
-    console.log('Mint operation completed successfully')
+    console.log('DAML mint result:', mintResult)
     
     return NextResponse.json({
       success: true,
       transaction: {
-        transactionHash: transactionResult.transactionHash,
-        status: transactionResult.status,
-        blockNumber: transactionResult.blockNumber
+        transactionHash: mintResult.transactionId,
+        contractId: mintResult.contractId,
+        status: 'confirmed'
       },
-      message: 'Tokens minted successfully'
+      message: 'Tokens minted successfully on DAML ledger',
+      issuer: {
+        email: userEmail,
+        partyId: sessionPartyId
+      },
+      recipient: {
+        partyId: validatedData.recipientPartyId
+      }
     })
     
   } catch (error) {

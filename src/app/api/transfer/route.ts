@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mockDb } from '@/lib/mock-db'
-import { cantonSDK } from '@/lib/canton'
+import { damlClient } from '@/lib/daml-client'
 import { transferTokensSchema } from '@/lib/validations'
 
 export async function POST(request: NextRequest) {
@@ -12,10 +11,9 @@ export async function POST(request: NextRequest) {
     const validatedData = transferTokensSchema.parse(body)
     console.log('Validated transfer data:', validatedData)
     
-    // Get token information
-    const token = await mockDb.token.findUnique({
-      where: { id: validatedData.tokenId }
-    })
+    // Get all tokens to find the one we want to transfer
+    const allTokens = await damlClient.getAllTokens()
+    const token = allTokens.find(t => t.contractId === validatedData.tokenId)
     
     if (!token) {
       return NextResponse.json(
@@ -24,134 +22,73 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Verify sender exists, create if not
-    let sender = await mockDb.user.findUnique({
-      where: { partyId: validatedData.senderPartyId }
-    })
+    console.log('Found token for transfer:', token)
     
-    if (!sender) {
-      // Create a new user for the sender Party ID
-      sender = await mockDb.user.create({
-        data: {
-          email: `${validatedData.senderPartyId}@canton-demo.com`,
-          partyId: validatedData.senderPartyId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
+    // Check sender's balance first
+    const senderHoldings = await damlClient.getHoldings(validatedData.senderPartyId)
+    console.log('Sender holdings:', senderHoldings)
+    const senderTokenHolding = senderHoldings.find(h => h.holding.tokenName === token.metadata.tokenName)
+    console.log('Sender token holding:', senderTokenHolding)
+    
+    if (!senderTokenHolding || parseFloat(senderTokenHolding.holding.amount) < parseFloat(validatedData.amount)) {
+      console.log('Insufficient balance check:', {
+        hasHolding: !!senderTokenHolding,
+        holdingAmount: senderTokenHolding?.holding.amount,
+        requestedAmount: validatedData.amount,
+        sufficientBalance: senderTokenHolding ? parseFloat(senderTokenHolding.holding.amount) >= parseFloat(validatedData.amount) : false
       })
-    }
-    
-    // Verify recipient exists, create if not
-    let recipient = await mockDb.user.findUnique({
-      where: { partyId: validatedData.recipientPartyId }
-    })
-    
-    if (!recipient) {
-      // Create a new user for the recipient Party ID
-      recipient = await mockDb.user.create({
-        data: {
-          email: `${validatedData.recipientPartyId}@canton-demo.com`,
-          partyId: validatedData.recipientPartyId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      })
-    }
-    
-    // Check sender's balance
-    const senderHolding = await mockDb.holding.findUnique({
-      where: {
-        userId_tokenId: {
-          userId: sender.id,
-          tokenId: token.id
-        }
-      }
-    })
-    
-    if (!senderHolding || senderHolding.freeCollateral < parseFloat(validatedData.amount)) {
       return NextResponse.json(
         { error: 'Insufficient balance' },
         { status: 400 }
       )
     }
     
-    // Transfer tokens using Canton SDK
-    const transactionResult = await cantonSDK.transferTokens({
-      contractId: token.id,
-      fromPartyId: validatedData.senderPartyId,
-      toPartyId: validatedData.recipientPartyId,
+    // Transfer tokens using DAML ledger (creates proposals for new/previous, simulated proposals for legacy)
+    console.log('Transferring tokens via DAML ledger...')
+    const transferResult = await damlClient.transferTokens({
+      from: validatedData.senderPartyId,
+      to: validatedData.recipientPartyId,
+      tokenName: token.metadata.tokenName,
       amount: validatedData.amount
     })
     
-    // Create transaction record
-    const transaction = await mockDb.transaction.create({
-      data: {
-        type: 'TRANSFER',
-        amount: parseFloat(validatedData.amount),
-        fromPartyId: validatedData.senderPartyId,
-        toPartyId: validatedData.recipientPartyId,
-        transactionHash: transactionResult.transactionHash,
-        status: transactionResult.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
-        userId: sender.id,
-        tokenId: token.id
-      }
-    })
+    console.log('DAML transfer result:', transferResult)
     
-    // Update sender's holding
-    await mockDb.holding.update({
-      where: { id: senderHolding.id },
-      data: {
-        totalBalance: {
-          decrement: parseFloat(validatedData.amount)
-        },
-        freeCollateral: {
-          decrement: parseFloat(validatedData.amount)
-        }
-      }
-    })
-    
-    // Update or create recipient's holding
-    const recipientHolding = await mockDb.holding.findUnique({
-      where: {
-        userId_tokenId: {
-          userId: recipient.id,
-          tokenId: token.id
-        }
-      }
-    })
-    
-    if (recipientHolding) {
-      await mockDb.holding.update({
-        where: { id: recipientHolding.id },
-        data: {
-          totalBalance: {
-            increment: parseFloat(validatedData.amount)
-          },
-          freeCollateral: {
-            increment: parseFloat(validatedData.amount)
-          }
-        }
+    // ALL transfers now require acceptance (both DAML proposals and legacy simulated proposals)
+    // Create notification for recipient about the proposal
+    try {
+      await fetch('http://localhost:3000/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partyId: validatedData.recipientPartyId,
+          type: 'transfer_proposal',
+          from: validatedData.senderPartyId,
+          to: validatedData.recipientPartyId,
+          tokenName: token.metadata.tokenName,
+          amount: validatedData.amount,
+          proposalId: transferResult.proposalId || transferResult.transactionId,
+          message: `You have received a transfer proposal for ${validatedData.amount} ${token.metadata.tokenName} tokens from ${validatedData.senderPartyId.split('::')[0]}. Please accept or reject this proposal.`
+        })
       })
-    } else {
-      await mockDb.holding.create({
-        data: {
-          userId: recipient.id,
-          tokenId: token.id,
-          totalBalance: parseFloat(validatedData.amount),
-          freeCollateral: parseFloat(validatedData.amount),
-          lockedCollateral: 0
-        }
-      })
+    } catch (notificationError) {
+      console.warn('Failed to create notification:', notificationError)
     }
     
     return NextResponse.json({
       success: true,
+      requiresAcceptance: true, // ALWAYS true now (both DAML and legacy proposals)
+      proposalId: transferResult.proposalId || transferResult.transactionId,
       transaction: {
-        transactionHash: transactionResult.transactionHash,
-        status: transactionResult.status,
-        blockNumber: transactionResult.blockNumber
+        transactionHash: transferResult.transactionId,
+        status: 'pending_acceptance'
       },
-      message: 'Tokens transferred successfully'
+      message: 'Transfer proposal created successfully. Recipient needs to accept the transfer.',
+      acceptanceUrl: `/api/transfer/accept`,
+      notification: {
+        message: `Transfer proposal sent to ${validatedData.recipientPartyId.split('::')[0]}. They will be notified to accept or reject the proposal.`,
+        recipientNotified: true
+      }
     })
     
   } catch (error) {

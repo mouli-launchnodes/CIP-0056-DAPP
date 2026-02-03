@@ -1,0 +1,17 @@
+-- Script to create a party for a user
+module CreateParty where
+
+import Daml.Script
+
+-- Create a party with a specific hint
+createUserParty : Text -> Text -> Script Party
+createUserParty email displayName = do
+  let partyHint = email <> "::" <> displayName
+  allocatePartyWithHint displayName (PartyIdHint partyHint)
+
+-- Test script
+testCreateParty : Script ()
+testCreateParty = do
+  party <- createUserParty "test@example.com" "TestUser"
+  debug ("Created party: " <> show party)
+  return ()

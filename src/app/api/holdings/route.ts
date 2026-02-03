@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mockDb } from '@/lib/mock-db'
-
-// Import the holdings array directly for now
-const getHoldings = () => {
-  // This is a workaround to access the internal holdings array
-  return (mockDb as any).holding._holdings || []
-}
+import { damlClient } from '@/lib/daml-client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,90 +10,107 @@ export async function GET(request: NextRequest) {
     
     console.log('Holdings API called with:', { partyId, tokenId, systemWide })
     
-    // If specific balance check
+    // If specific balance check for a party and token
     if (partyId && tokenId) {
-      const user = await mockDb.user.findUnique({
-        where: { partyId }
-      })
+      console.log(`Checking balance for party ${partyId} and token ${tokenId}`)
       
-      console.log('Found user for balance check:', user)
-      
-      if (!user) {
-        // Return zero balance instead of 404 for non-existent users
+      try {
+        const holdings = await damlClient.getHoldings(partyId)
+        
+        // Find the specific token holding by either tokenName or contractId
+        const tokenHolding = holdings.find(h => 
+          h.holding.tokenName === tokenId || h.contractId === tokenId
+        )
+        
+        if (!tokenHolding) {
+          // Also try to find by token name from the tokens list
+          const allTokens = await damlClient.getAllTokens()
+          const token = allTokens.find(t => t.contractId === tokenId)
+          
+          if (token) {
+            // Look for holding by token name
+            const holdingByName = holdings.find(h => h.holding.tokenName === token.metadata.tokenName)
+            if (holdingByName) {
+              return NextResponse.json({
+                success: true,
+                balance: {
+                  available: holdingByName.holding.amount,
+                  token: holdingByName.holding.tokenName
+                }
+              })
+            }
+          }
+          
+          return NextResponse.json({
+            success: true,
+            balance: {
+              available: '0',
+              token: token?.metadata.tokenName || tokenId
+            }
+          })
+        }
+        
+        return NextResponse.json({
+          success: true,
+          balance: {
+            available: tokenHolding.holding.amount,
+            token: tokenHolding.holding.tokenName
+          }
+        })
+      } catch (error) {
+        console.error('Error fetching specific balance:', error)
         return NextResponse.json({
           success: true,
           balance: {
             available: '0',
-            token: 'No holdings'
+            token: tokenId
           }
         })
       }
-      
-      const holding = await mockDb.holding.findUnique({
-        where: {
-          userId_tokenId: {
-            userId: user.id,
-            tokenId: tokenId
-          }
-        }
-      })
-      
-      console.log('Found holding for balance check:', holding)
-      
-      if (!holding) {
-        // Return zero balance instead of null for non-existent holdings
-        const token = await mockDb.token.findUnique({ where: { id: tokenId } })
-        return NextResponse.json({
-          success: true,
-          balance: {
-            available: '0',
-            token: token?.name || 'Unknown'
-          }
-        })
-      }
-      
-      const token = await mockDb.token.findUnique({ where: { id: tokenId } })
-      
-      return NextResponse.json({
-        success: true,
-        balance: {
-          available: holding.freeCollateral.toString(),
-          token: token?.name || 'Unknown'
-        }
-      })
     }
     
     // Handle system-wide holdings request (for dashboard stats)
     if (systemWide) {
       console.log('Fetching system-wide holdings for dashboard stats')
       
-      const allHoldings = await mockDb.holding.findMany()
-      
-      const formattedHoldings = await Promise.all(
-        allHoldings.map(async (holding: any) => {
-          const token = await mockDb.token.findUnique({ where: { id: holding.tokenId } })
-          const user = await mockDb.user.findUnique({ where: { id: holding.userId } })
-          
-          return {
-            id: holding.id,
-            partyId: user?.partyId || 'Unknown',
-            tokenName: token?.name || 'Unknown Token',
-            currency: token?.currency || 'Unknown',
-            totalBalance: holding.totalBalance.toString(),
-            freeCollateral: holding.freeCollateral.toString(),
-            lockedCollateral: holding.lockedCollateral.toString(),
-            contractAddress: token?.contractAddress || 'Unknown'
-          }
+      try {
+        // Get all tokens first
+        const allTokens = await damlClient.getAllTokens()
+        
+        // For system-wide view, show all tokens with their current supply
+        // In DAML, token creation doesn't automatically create holdings
+        // Holdings are created when tokens are minted to specific parties
+        const systemHoldings = allTokens.map(token => ({
+          id: token.contractId,
+          partyId: token.metadata.issuer,
+          tokenName: token.metadata.tokenName,
+          currency: token.metadata.currency,
+          totalBalance: token.metadata.totalSupply,
+          freeCollateral: token.metadata.totalSupply,
+          lockedCollateral: '0',
+          contractAddress: token.contractId,
+          recentTransactions: [],
+          type: 'TOKEN_CREATED',
+          issuer: token.metadata.issuer.split('::')[0]
+        }))
+        
+        console.log('System-wide holdings (token metadata):', systemHoldings)
+        
+        return NextResponse.json({
+          success: true,
+          holdings: systemHoldings,
+          systemWide: true,
+          note: 'Showing created tokens - mint tokens to create actual holdings'
         })
-      )
-      
-      console.log('System-wide holdings:', formattedHoldings)
-      
-      return NextResponse.json({
-        success: true,
-        holdings: formattedHoldings,
-        systemWide: true
-      })
+      } catch (error) {
+        console.error('Error fetching system-wide holdings:', error)
+        return NextResponse.json({
+          success: true,
+          holdings: [],
+          systemWide: true,
+          error: 'Failed to fetch system-wide holdings from DAML ledger'
+        })
+      }
     }
     
     // For user-specific holdings listing, partyId is required
@@ -113,54 +124,45 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Find the user by party ID
-    const user = await mockDb.user.findUnique({
-      where: { partyId }
-    })
+    console.log(`Fetching holdings for party: ${partyId}`)
     
-    if (!user) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Party ID not found' 
-        },
-        { status: 404 }
-      )
-    }
-
-    // Get holdings only for this specific user
-    const userHoldings = await mockDb.holding.findMany({
-      where: { userId: user.id }
-    })
-    
-    const formattedHoldings = await Promise.all(
-      userHoldings.map(async (holding: any) => {
-        const token = await mockDb.token.findUnique({ where: { id: holding.tokenId } })
-        
-        return {
-          id: holding.id,
-          partyId: user.partyId,
-          tokenName: token?.name || 'Unknown Token',
-          currency: token?.currency || 'Unknown',
-          totalBalance: holding.totalBalance.toString(),
-          freeCollateral: holding.freeCollateral.toString(),
-          lockedCollateral: holding.lockedCollateral.toString(),
-          contractAddress: token?.contractAddress || 'Unknown',
-          recentTransactions: [] // We'll add this later if needed
-        }
+    try {
+      // Get holdings from DAML ledger
+      const damlHoldings = await damlClient.getHoldings(partyId)
+      
+      // Transform DAML holdings to API format
+      const formattedHoldings = damlHoldings.map(({ contractId, holding }) => ({
+        id: contractId,
+        partyId: holding.owner,
+        tokenName: holding.tokenName,
+        currency: 'USD', // Default currency, could be enhanced
+        totalBalance: holding.amount,
+        freeCollateral: holding.amount,
+        lockedCollateral: '0',
+        contractAddress: contractId,
+        recentTransactions: []
+      }))
+      
+      console.log(`Formatted holdings for ${partyId}:`, formattedHoldings)
+      
+      return NextResponse.json({
+        success: true,
+        holdings: formattedHoldings,
+        partyId: partyId
       })
-    )
-    
-    console.log(`Formatted holdings for ${partyId}:`, formattedHoldings)
-    
-    return NextResponse.json({
-      success: true,
-      holdings: formattedHoldings,
-      partyId: user.partyId
-    })
+    } catch (error) {
+      console.error(`Error fetching holdings for party ${partyId}:`, error)
+      
+      return NextResponse.json({
+        success: true,
+        holdings: [],
+        partyId: partyId,
+        error: 'Failed to fetch holdings from DAML ledger'
+      })
+    }
     
   } catch (error) {
-    console.error('Error fetching holdings:', error)
+    console.error('Error in holdings API:', error)
     
     return NextResponse.json(
       { 

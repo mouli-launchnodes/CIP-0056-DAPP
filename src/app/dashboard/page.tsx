@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useDashboardStats } from '@/hooks/use-dashboard-stats'
 import { StatsSkeleton } from '@/components/loading-skeleton'
 import { CantonAuthStatus } from '@/components/canton-auth-status'
+import { Notifications } from '@/components/notifications'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -449,6 +450,18 @@ export default function DashboardPage() {
             </motion.div>
           </div>
         </div>
+      </motion.div>
+
+      {/* Notifications Section */}
+      <motion.div 
+        id="notifications"
+        className="mt-12"
+        variants={itemVariants}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.8, duration: 0.6 }}
+      >
+        <Notifications partyId={userPartyId} />
       </motion.div>
     </motion.div>
   )

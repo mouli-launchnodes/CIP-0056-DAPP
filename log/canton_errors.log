@@ -1,0 +1,5 @@
+2026-02-02 11:19:23,614 [canton-env-ec-26] DEBUG c.d.c.n.g.ApiRequestLogger:participant=sandbox tid:836289dae531a8f280c4065d0e237235 - Request c.d.l.a.v.a.PartyManagementService/AllocateParty by /127.0.0.1:58774: received a message 
+  Request tid:836289dae531a8f280c4065d0e237235
+2026-02-02 11:19:23,620 [canton-env-ec-26] INFO  c.d.c.p.a.s.a.ApiPartyManagementService:participant=sandbox tid:836289dae531a8f280c4065d0e237235 - Allocating party, parties -> ['party::mouli_c_at_launchnodes_com'], submissionId -> 'party::mouli_c_at_launchnodes_com-4475a5f6-f840-4264-b6e3-f3dc6f0eb9f9'.
+2026-02-02 11:19:23,644 [canton-env-ec-26] INFO  c.d.c.p.s.PartyAllocation:participant=sandbox tid:836289dae531a8f280c4065d0e237235 - Failed to allocate party party::mouli_c_at_launchnodes_com::1220a438dc62...: SynchronousError(Status(13,String contains reserved delimiter `::`.,List(),UnknownFieldSet(Map())))
+2026-02-02 11:19:23,647 [canton-env-ec-26] ERROR c.d.c.n.g.ApiRequestLogger:participant=sandbox tid:836289dae531a8f280c4065d0e237235 - Request c.d.l.a.v.a.PartyManagementService/AllocateParty by /127.0.0.1:58774: failed with INTERNAL/String contains reserved delimiter `::`.

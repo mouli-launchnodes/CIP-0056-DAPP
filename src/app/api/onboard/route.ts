@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mockDb } from '@/lib/mock-db'
+import { damlClient } from '@/lib/daml-client'
 import { cantonSDK } from '@/lib/canton'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
@@ -62,69 +62,91 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Check if user already exists by Auth0 ID or email
-    console.log('Checking for existing user...')
-    const existingUser = await mockDb.user.findFirst({
-      where: {
-        OR: [
-          { email: validatedData.email },
-          { auth0UserId: sessionUser.sub }
-        ]
-      }
-    })
+    // Generate deterministic party ID from email (no mock database)
+    const userEmail = validatedData.email
+    const partyId = `party::${userEmail.replace('@', '_at_').replace(/\./g, '_')}`
     
-    if (existingUser) {
-      console.log('Existing user found:', existingUser.email)
-      return NextResponse.json(
-        { 
-          success: true,
-          partyId: existingUser.partyId,
-          message: 'User already onboarded',
-          isExisting: true
-        },
-        { status: 200 }
-      )
-    }
+    console.log(`Generated deterministic party ID: ${partyId} for email: ${userEmail}`)
     
-    console.log('No existing user found, generating new Party ID...')
-    
-    // Generate Party ID using Canton SDK
     try {
-      const partyInfo = await cantonSDK.generatePartyId(validatedData.email)
-      console.log('Party ID generated:', partyInfo.partyId)
+      // Register party with DAML ledger (no mock database)
+      console.log('Registering party with DAML ledger...')
+      const partyResult = await damlClient.registerParty(userEmail, validatedData.name || sessionUser.name || 'User')
       
-      // Store user in database with Auth0 information
-      const user = await mockDb.user.create({
-        data: {
-          email: validatedData.email,
-          partyId: partyInfo.partyId,
-          auth0UserId: sessionUser.sub,
-          name: validatedData.name || sessionUser.name || null,
-          profilePicture: sessionUser.picture || null,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
+      console.log('Party registration result:', partyResult)
+      
+      // Update session cookie with party information
+      cookieStore.set('auth0_user', JSON.stringify({
+        ...sessionUser,
+        email: userEmail,
+        partyId: partyResult.partyId
+      }), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7 // 7 days
       })
-      
-      console.log('User created successfully:', user.email)
       
       return NextResponse.json({
         success: true,
-        partyId: user.partyId,
-        message: 'User onboarded successfully',
+        partyId: partyResult.partyId,
+        message: 'User onboarded successfully with real DAML integration',
         isExisting: false,
+        damlIntegration: true,
         user: {
-          email: user.email,
-          name: user.name,
-          partyId: user.partyId
+          email: userEmail,
+          name: validatedData.name || sessionUser.name,
+          partyId: partyResult.partyId
         }
       })
-    } catch (cantonError) {
-      console.error('Canton SDK error:', cantonError)
-      return NextResponse.json(
-        { error: `Canton Network error: ${cantonError instanceof Error ? cantonError.message : 'Unknown error'}` },
-        { status: 500 }
-      )
+      
+    } catch (damlError) {
+      console.error('DAML integration error:', damlError)
+      
+      // Provide specific error messages for DAML issues
+      if (damlError instanceof Error) {
+        if (damlError.message.includes('connect')) {
+          return NextResponse.json({
+            error: 'Failed to connect to DAML ledger',
+            details: 'Please ensure DAML sandbox is running with: daml start',
+            troubleshooting: {
+              step1: 'Open terminal in project directory',
+              step2: 'Run: daml start',
+              step3: 'Wait for "Navigator running on http://localhost:7500"',
+              step4: 'Try onboarding again'
+            }
+          }, { status: 503 })
+        }
+      }
+      
+      // Fallback: still create party ID but without DAML registration
+      console.warn('DAML registration failed, using fallback party ID generation')
+      
+      // Update session cookie with fallback party information
+      cookieStore.set('auth0_user', JSON.stringify({
+        ...sessionUser,
+        email: userEmail,
+        partyId: partyId
+      }), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7 // 7 days
+      })
+      
+      return NextResponse.json({
+        success: true,
+        partyId: partyId,
+        message: 'User onboarded with fallback party ID (DAML ledger not available)',
+        isExisting: false,
+        damlIntegration: false,
+        user: {
+          email: userEmail,
+          name: validatedData.name || sessionUser.name,
+          partyId: partyId
+        },
+        warning: 'DAML ledger not available, using fallback implementation'
+      })
     }
     
   } catch (error) {
