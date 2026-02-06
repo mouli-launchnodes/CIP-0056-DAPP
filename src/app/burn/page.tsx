@@ -233,7 +233,7 @@ function BurnTokensContent() {
     <div className="page-container">
       {/* Professional Page Header */}
       <div className="page-header">
-        <h1 className="page-title">Burn Tokens</h1>
+        <h1 className="page-title">Burn Fund Tokens</h1>
         <p className="page-description">
           Permanently destroy tokens from circulation. This action is <strong>irreversible</strong> and will reduce the total supply.
         </p>
