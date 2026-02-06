@@ -134,38 +134,28 @@ export function TopNavbar({ userPartyId, onSidebarToggle, isMobileMenuOpen, onMo
           </div>
 
           {/* Right side - Responsive layout */}
-          <div className="navbar-right">
-            {/* Party ID Display - Responsive */}
+          <div className="navbar-right flex items-center gap-3">
+            {/* Party ID Display - Always visible */}
             <Tooltip.Root>
               <Tooltip.Trigger asChild>
-                <MotionDiv 
-                  className="party-id-display"
+                <MotionDiv
+                  className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg border border-border bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
                   {...(prefersReducedMotion ? {} : {
                     whileHover: { scale: 1.02 },
                     transition: { type: 'spring' as const, stiffness: 400, damping: 25 }
                   })}
+                  onClick={copyPartyId}
                 >
                   <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <span className="party-id-text text-xs md:text-sm" title={userPartyId}>
+                  <span className="text-xs font-mono text-muted-foreground max-w-[80px] sm:max-w-[120px] md:max-w-[180px] truncate" title={userPartyId}>
                     {formatPartyId(userPartyId)}
                   </span>
-                  <MotionButton
-                    onClick={copyPartyId}
-                    className="copy-button min-w-[32px] min-h-[32px] flex items-center justify-center"
-                    title="Copy Party ID"
-                    {...(prefersReducedMotion ? {} : {
-                      whileHover: { scale: 1.1 },
-                      whileTap: { scale: 0.9 },
-                      transition: { type: 'spring' as const, stiffness: 400, damping: 25 }
-                    })}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </MotionButton>
+                  <Copy className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 </MotionDiv>
               </Tooltip.Trigger>
               <Tooltip.Portal>
                 <Tooltip.Content
-                  className="bg-black text-white px-2 py-1 rounded text-xs z-50"
+                  className="bg-foreground text-background px-3 py-2 rounded-lg text-xs z-50 font-mono max-w-[300px]"
                   sideOffset={5}
                 >
                   <MotionDiv
@@ -175,18 +165,22 @@ export function TopNavbar({ userPartyId, onSidebarToggle, isMobileMenuOpen, onMo
                       exit: { opacity: 0, scale: 0.8 }
                     })}
                   >
-                    Click to copy full Party ID
+                    <p className="text-muted-foreground mb-1">Click to copy:</p>
+                    <p className="break-all">{userPartyId}</p>
                   </MotionDiv>
-                  <Tooltip.Arrow className="fill-black" />
+                  <Tooltip.Arrow className="fill-foreground" />
                 </Tooltip.Content>
               </Tooltip.Portal>
             </Tooltip.Root>
 
-            {/* Theme Toggle */}
-            <ThemeToggle />
+            {/* Icon buttons container */}
+            <div className="flex items-center gap-2">
+              {/* Theme Toggle */}
+              <ThemeToggle />
 
-            {/* Notification Dropdown */}
-            <NotificationDropdown userPartyId={userPartyId} />
+              {/* Notification Dropdown */}
+              <NotificationDropdown userPartyId={userPartyId} />
+            </div>
 
             {/* User Profile Dropdown - Mobile optimized */}
             {user && (

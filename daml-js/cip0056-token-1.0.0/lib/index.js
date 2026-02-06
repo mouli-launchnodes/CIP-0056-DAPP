@@ -7,4 +7,4 @@ function __export(m) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var CIP0056Token = require('./CIP0056Token');
 exports.CIP0056Token = CIP0056Token;
-exports.packageId = 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458';
+exports.packageId = 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329';

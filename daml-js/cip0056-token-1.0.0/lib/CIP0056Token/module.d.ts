@@ -21,7 +21,7 @@ export declare interface PartyRegistrationInterface {
   Archive: damlTypes.Choice<PartyRegistration, pkgd14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.DA.Internal.Template.Archive, {}, PartyRegistration.Key> & damlTypes.ChoiceFrom<damlTypes.Template<PartyRegistration, PartyRegistration.Key>>;
 }
 export declare const PartyRegistration:
-  damlTypes.Template<PartyRegistration, PartyRegistration.Key, 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:PartyRegistration'> &
+  damlTypes.Template<PartyRegistration, PartyRegistration.Key, 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:PartyRegistration'> &
   damlTypes.ToInterface<PartyRegistration, never> &
   PartyRegistrationInterface;
 
@@ -56,7 +56,7 @@ export declare interface MintRequestInterface {
   Archive: damlTypes.Choice<MintRequest, pkgd14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.DA.Internal.Template.Archive, {}, undefined> & damlTypes.ChoiceFrom<damlTypes.Template<MintRequest, undefined>>;
 }
 export declare const MintRequest:
-  damlTypes.Template<MintRequest, undefined, 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:MintRequest'> &
+  damlTypes.Template<MintRequest, undefined, 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:MintRequest'> &
   damlTypes.ToInterface<MintRequest, never> &
   MintRequestInterface;
 
@@ -93,16 +93,16 @@ export declare type TransferProposal = {
   newOwner: damlTypes.Party;
   tokenName: string;
   transferAmount: damlTypes.Numeric;
-  holdingId: damlTypes.ContractId<TokenHolding>;
+  senderRemainingAmount: damlTypes.Numeric;
 };
 
 export declare interface TransferProposalInterface {
   AcceptTransfer: damlTypes.Choice<TransferProposal, AcceptTransfer, pkg40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7.DA.Types.Tuple2<damlTypes.ContractId<TokenHolding>, damlTypes.Optional<damlTypes.ContractId<TokenHolding>>>, undefined> & damlTypes.ChoiceFrom<damlTypes.Template<TransferProposal, undefined>>;
-  RejectTransfer: damlTypes.Choice<TransferProposal, RejectTransfer, {}, undefined> & damlTypes.ChoiceFrom<damlTypes.Template<TransferProposal, undefined>>;
+  RejectTransfer: damlTypes.Choice<TransferProposal, RejectTransfer, damlTypes.ContractId<TokenHolding>, undefined> & damlTypes.ChoiceFrom<damlTypes.Template<TransferProposal, undefined>>;
   Archive: damlTypes.Choice<TransferProposal, pkgd14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.DA.Internal.Template.Archive, {}, undefined> & damlTypes.ChoiceFrom<damlTypes.Template<TransferProposal, undefined>>;
 }
 export declare const TransferProposal:
-  damlTypes.Template<TransferProposal, undefined, 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:TransferProposal'> &
+  damlTypes.Template<TransferProposal, undefined, 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:TransferProposal'> &
   damlTypes.ToInterface<TransferProposal, never> &
   TransferProposalInterface;
 
@@ -172,7 +172,7 @@ export declare interface TokenHoldingInterface {
   Archive: damlTypes.Choice<TokenHolding, pkgd14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.DA.Internal.Template.Archive, {}, TokenHolding.Key> & damlTypes.ChoiceFrom<damlTypes.Template<TokenHolding, TokenHolding.Key>>;
 }
 export declare const TokenHolding:
-  damlTypes.Template<TokenHolding, TokenHolding.Key, 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:TokenHolding'> &
+  damlTypes.Template<TokenHolding, TokenHolding.Key, 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:TokenHolding'> &
   damlTypes.ToInterface<TokenHolding, never> &
   TokenHoldingInterface;
 
@@ -211,7 +211,7 @@ export declare interface TokenMetadataInterface {
   Archive: damlTypes.Choice<TokenMetadata, pkgd14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.DA.Internal.Template.Archive, {}, TokenMetadata.Key> & damlTypes.ChoiceFrom<damlTypes.Template<TokenMetadata, TokenMetadata.Key>>;
 }
 export declare const TokenMetadata:
-  damlTypes.Template<TokenMetadata, TokenMetadata.Key, 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:TokenMetadata'> &
+  damlTypes.Template<TokenMetadata, TokenMetadata.Key, 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:TokenMetadata'> &
   damlTypes.ToInterface<TokenMetadata, never> &
   TokenMetadataInterface;
 

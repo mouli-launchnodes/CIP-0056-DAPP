@@ -22,11 +22,22 @@ function OnboardingContent() {
           const userData = await response.json()
           setUser(userData)
           setEmail(userData.email || '')
-          
+
+          // Check if this user has a valid party ID
           const userPartyId = localStorage.getItem('userPartyId')
-          if (userPartyId) {
+          const storedAuth0Id = localStorage.getItem('auth0UserId')
+
+          // Only redirect if the stored party belongs to THIS user
+          if (userPartyId && storedAuth0Id === userData.sub) {
+            console.log('Found valid party for current user:', userPartyId)
             router.push('/dashboard')
             return
+          } else if (userPartyId && storedAuth0Id !== userData.sub) {
+            // Different user logged in - clear old party data
+            console.log('Different user detected, clearing old party data')
+            localStorage.removeItem('userPartyId')
+            localStorage.removeItem('userEmail')
+            localStorage.removeItem('auth0UserId')
           }
         }
       } catch (error) {
@@ -46,23 +57,27 @@ function OnboardingContent() {
 
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!user) {
       toast.error('Please log in first to continue with onboarding')
       return
     }
 
     setIsOnboarding(true)
-    
+
     try {
-      console.log('Starting onboarding for user:', user.email)
-      
+      console.log('Starting onboarding for user:', user.email, 'Auth0 ID:', user.sub)
+
+      // Clear any existing party data to ensure fresh allocation
+      localStorage.removeItem('userPartyId')
+      localStorage.removeItem('userEmail')
+
       const response = await fetch('/api/onboard', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: user.email || email,
           auth0UserId: user.sub,
           name: user.name
@@ -75,16 +90,19 @@ function OnboardingContent() {
       if (!response.ok) {
         throw new Error(result.error || `HTTP ${response.status}: Failed to onboard user`)
       }
-      
+
+      // Store the NEW party ID for this specific user
+      console.log('Storing party ID:', result.partyId, 'for user:', user.email)
       localStorage.setItem('userPartyId', result.partyId)
       localStorage.setItem('userEmail', user.email || email)
-      
+      localStorage.setItem('auth0UserId', user.sub)
+
       if (result.isExisting) {
-        toast.success('Welcome back! Redirecting to dashboard...')
+        toast.success(`Welcome back! Your Canton Party: ${result.partyId.split('::')[0]}`)
       } else {
-        toast.success('Successfully onboarded to Canton Network!')
+        toast.success(`New Canton Party allocated: ${result.partyId.split('::')[0]}`)
       }
-      
+
       router.push('/dashboard')
     } catch (error) {
       console.error('Onboarding error:', error)
@@ -129,7 +147,7 @@ function OnboardingContent() {
         </div>
 
         {/* Features Overview */}
-        <div className="mb-16 grid gap-8 grid-cols-3">
+        <div className="mb-16 grid gap-6 sm:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <div className="landing-feature-card">
             <div className="landing-feature-icon bg-blue-100 dark:bg-blue-900">
               <Shield className="h-8 w-8 text-blue-600 dark:text-blue-400" />
@@ -183,18 +201,28 @@ function OnboardingContent() {
               ) : (
                 <div className="onboarding-content">
                   <div className="auth-header">
-                    <h2 className="auth-title">Complete Your Setup</h2>
+                    <h2 className="auth-title">Complete Canton Setup</h2>
                     <p className="auth-description">
-                      Welcome {user.name}! Generate your Party ID to access Canton Network
+                      Welcome {user.name}! Connect to Canton Network to get your Party ID
                     </p>
                   </div>
 
                   <div className="alert-success">
                     <Shield className="h-5 w-5" />
                     <div>
-                      <div className="font-medium">Authenticated Successfully</div>
+                      <div className="font-medium">Step 1: Auth0 Login Complete</div>
                       <div className="text-sm">Email: {user.email}</div>
                     </div>
+                  </div>
+
+                  <div className="my-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
+                    <h4 className="mb-2 font-medium text-blue-900 dark:text-blue-100">Canton Party Allocation Flow:</h4>
+                    <ol className="list-inside list-decimal space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                      <li>Get Canton OIDC token (client credentials)</li>
+                      <li>Call Canton Party Allocation with your Auth0 ID</li>
+                      <li>Receive your unique Canton Party ID</li>
+                      <li>Ready for token operations!</li>
+                    </ol>
                   </div>
 
                   <form onSubmit={handleOnboarding} className="onboarding-form">
@@ -210,23 +238,23 @@ function OnboardingContent() {
                         className="form-input"
                       />
                       <p className="form-help">
-                        This email will be used to generate your Canton Network Party ID
+                        Your Auth0 ID will be used to allocate your Canton Party
                       </p>
                     </div>
 
-                    <button 
-                      type="submit" 
+                    <button
+                      type="submit"
                       className="btn btn-primary btn-large w-full"
                       disabled={isOnboarding}
                     >
                       {isOnboarding ? (
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Generating Party ID...
+                          Allocating Canton Party...
                         </>
                       ) : (
                         <>
-                          Generate Party ID
+                          Connect to Canton Network
                           <ArrowRight className="ml-2 h-5 w-5" />
                         </>
                       )}
@@ -234,7 +262,7 @@ function OnboardingContent() {
                   </form>
 
                   <div className="text-center">
-                    <button 
+                    <button
                       onClick={() => window.location.href = '/auth/logout'}
                       className="btn btn-secondary btn-small"
                     >

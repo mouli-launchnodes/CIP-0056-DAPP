@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { damlClient } from '@/lib/daml-client'
 import { mintTokensSchema } from '@/lib/validations'
+import { validateUserSession, createSessionValidationResponse } from '@/lib/session-validator'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
@@ -51,11 +52,52 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Get all tokens to find the one we want to mint
-    const allTokens = await damlClient.getAllTokens()
-    const token = allTokens.find(t => t.contractId === validatedData.tokenId)
+    console.log(`Minting as authenticated user: ${userEmail} (Party: ${sessionPartyId})`)
+    
+    // Validate user session and party ID
+    console.log(`Validating session for user: ${userEmail} (Party: ${sessionPartyId})`)
+    const sessionValidation = await validateUserSession(sessionPartyId, userEmail)
+    
+    if (!sessionValidation.isValid) {
+      const errorResponse = createSessionValidationResponse(sessionValidation)
+      return NextResponse.json(errorResponse, { status: 401 })
+    }
+    
+    console.log('Session validation passed, proceeding with mint')
+    
+    // Get all tokens to find the one we want to mint (use user's party ID for consistency)
+    console.log(`Attempting to get tokens for user party: ${sessionPartyId}`)
+    const allTokens = await damlClient.getAllTokens(sessionPartyId)
+    console.log(`Found ${allTokens.length} tokens for user party: ${sessionPartyId}`)
+    
+    // If no tokens found for user's party, try all parties as fallback
+    let token = allTokens.find(t => t.contractId === validatedData.tokenId)
+    
+    if (!token && allTokens.length === 0) {
+      console.log('No tokens found for user party, trying all parties as fallback')
+      const allPartiesTokens = await damlClient.getAllTokens()
+      console.log(`Found ${allPartiesTokens.length} tokens from all parties`)
+      if (allPartiesTokens.length > 0) {
+        console.log('Available tokens from all parties:', allPartiesTokens.map(t => ({ contractId: t.contractId, name: t.metadata.tokenName, issuer: t.metadata.issuer })))
+      }
+      token = allPartiesTokens.find(t => t.contractId === validatedData.tokenId)
+      
+      // If we found the token but it belongs to a different party, suggest re-onboarding
+      if (token && token.metadata.issuer !== sessionPartyId) {
+        return NextResponse.json(
+          { 
+            error: 'Your session is outdated. Please refresh the page and complete onboarding again.',
+            details: 'The DAML ledger was restarted and your party ID is no longer valid.',
+            action: 'refresh_and_onboard'
+          },
+          { status: 401 }
+        )
+      }
+    }
     
     if (!token) {
+      console.log(`Token not found. Looking for tokenId: ${validatedData.tokenId}`)
+      console.log('Available tokens:', allTokens.map(t => ({ contractId: t.contractId, name: t.metadata.tokenName })))
       return NextResponse.json(
         { error: 'Token not found. Please create a token first.' },
         { status: 404 }

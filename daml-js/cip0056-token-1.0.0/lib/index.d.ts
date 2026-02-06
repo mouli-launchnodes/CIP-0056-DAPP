@@ -1,3 +1,3 @@
 import * as CIP0056Token from './CIP0056Token';
 export { CIP0056Token } ;
-export declare const packageId = 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458';
+export declare const packageId = 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329';

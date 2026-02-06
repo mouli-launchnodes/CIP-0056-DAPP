@@ -17,14 +17,45 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   const cantonAuth = useCantonAuth()
 
   useEffect(() => {
-    // Check if user is onboarded
-    const partyId = localStorage.getItem('userPartyId')
-    if (!partyId) {
-      router.push('/')
-      return
+    const verifyUserSession = async () => {
+      // Check if user is onboarded
+      const partyId = localStorage.getItem('userPartyId')
+      const storedAuth0Id = localStorage.getItem('auth0UserId')
+
+      if (!partyId) {
+        router.push('/')
+        return
+      }
+
+      // Verify the stored party belongs to the current Auth0 user
+      try {
+        const response = await fetch('/auth/profile')
+        if (response.ok) {
+          const userData = await response.json()
+
+          // If different user is logged in, clear old data and redirect
+          if (storedAuth0Id && storedAuth0Id !== userData.sub) {
+            console.log('Session mismatch: different user logged in')
+            localStorage.removeItem('userPartyId')
+            localStorage.removeItem('userEmail')
+            localStorage.removeItem('auth0UserId')
+            router.push('/')
+            return
+          }
+        } else {
+          // Not logged in - redirect to onboarding
+          router.push('/')
+          return
+        }
+      } catch (error) {
+        console.error('Error verifying session:', error)
+      }
+
+      setUserPartyId(partyId)
+      setIsLoading(false)
     }
-    setUserPartyId(partyId)
-    setIsLoading(false)
+
+    verifyUserSession()
   }, [router])
 
   if (isLoading || cantonAuth.auth0Loading) {

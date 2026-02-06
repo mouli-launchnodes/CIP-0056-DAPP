@@ -18,7 +18,7 @@ var pkgd14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662 = requir
 
 exports.PartyRegistration = damlTypes.assembleTemplate(
 {
-  templateId: 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:PartyRegistration',
+  templateId: 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:PartyRegistration',
   keyDecoder: damlTypes.lazyMemo(function () { return damlTypes.lazyMemo(function () { return damlTypes.Party.decoder; }); }),
   keyEncode: function (__typed__) { return damlTypes.Party.encode(__typed__); },
   decoder: damlTypes.lazyMemo(function () { return jtv.object({party: damlTypes.Party.decoder, email: damlTypes.Text.decoder, displayName: damlTypes.Text.decoder, registrationTime: damlTypes.Time.decoder, }); }),
@@ -61,7 +61,7 @@ exports.ExecuteMint = {
 
 exports.MintRequest = damlTypes.assembleTemplate(
 {
-  templateId: 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:MintRequest',
+  templateId: 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:MintRequest',
   keyDecoder: damlTypes.lazyMemo(function () { return jtv.constant(undefined); }),
   keyEncode: function () { throw 'EncodeError'; },
   decoder: damlTypes.lazyMemo(function () { return jtv.object({issuer: damlTypes.Party.decoder, recipient: damlTypes.Party.decoder, tokenName: damlTypes.Text.decoder, mintAmount: damlTypes.Numeric(10).decoder, }); }),
@@ -123,10 +123,10 @@ exports.AcceptTransfer = {
 
 exports.TransferProposal = damlTypes.assembleTemplate(
 {
-  templateId: 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:TransferProposal',
+  templateId: 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:TransferProposal',
   keyDecoder: damlTypes.lazyMemo(function () { return jtv.constant(undefined); }),
   keyEncode: function () { throw 'EncodeError'; },
-  decoder: damlTypes.lazyMemo(function () { return jtv.object({issuer: damlTypes.Party.decoder, currentOwner: damlTypes.Party.decoder, newOwner: damlTypes.Party.decoder, tokenName: damlTypes.Text.decoder, transferAmount: damlTypes.Numeric(10).decoder, holdingId: damlTypes.ContractId(exports.TokenHolding).decoder, }); }),
+  decoder: damlTypes.lazyMemo(function () { return jtv.object({issuer: damlTypes.Party.decoder, currentOwner: damlTypes.Party.decoder, newOwner: damlTypes.Party.decoder, tokenName: damlTypes.Text.decoder, transferAmount: damlTypes.Numeric(10).decoder, senderRemainingAmount: damlTypes.Numeric(10).decoder, }); }),
   encode: function (__typed__) {
   return {
     issuer: damlTypes.Party.encode(__typed__.issuer),
@@ -134,7 +134,7 @@ exports.TransferProposal = damlTypes.assembleTemplate(
     newOwner: damlTypes.Party.encode(__typed__.newOwner),
     tokenName: damlTypes.Text.encode(__typed__.tokenName),
     transferAmount: damlTypes.Numeric(10).encode(__typed__.transferAmount),
-    holdingId: damlTypes.ContractId(exports.TokenHolding).encode(__typed__.holdingId),
+    senderRemainingAmount: damlTypes.Numeric(10).encode(__typed__.senderRemainingAmount),
   };
 }
 ,
@@ -151,8 +151,8 @@ exports.TransferProposal = damlTypes.assembleTemplate(
     choiceName: 'RejectTransfer',
     argumentDecoder: damlTypes.lazyMemo(function () { return exports.RejectTransfer.decoder; }),
     argumentEncode: function (__typed__) { return exports.RejectTransfer.encode(__typed__); },
-    resultDecoder: damlTypes.lazyMemo(function () { return damlTypes.Unit.decoder; }),
-    resultEncode: function (__typed__) { return damlTypes.Unit.encode(__typed__); },
+    resultDecoder: damlTypes.lazyMemo(function () { return damlTypes.ContractId(exports.TokenHolding).decoder; }),
+    resultEncode: function (__typed__) { return damlTypes.ContractId(exports.TokenHolding).encode(__typed__); },
   },
   Archive: {
     template: function () { return exports.TransferProposal; },
@@ -223,7 +223,7 @@ exports.ProposeTransfer = {
 
 exports.TokenHolding = damlTypes.assembleTemplate(
 {
-  templateId: 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:TokenHolding',
+  templateId: 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:TokenHolding',
   keyDecoder: damlTypes.lazyMemo(function () { return damlTypes.lazyMemo(function () { return pkg40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7.DA.Types.Tuple3(damlTypes.Party, damlTypes.Party, damlTypes.Text).decoder; }); }),
   keyEncode: function (__typed__) { return pkg40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7.DA.Types.Tuple3(damlTypes.Party, damlTypes.Party, damlTypes.Text).encode(__typed__); },
   decoder: damlTypes.lazyMemo(function () { return jtv.object({issuer: damlTypes.Party.decoder, owner: damlTypes.Party.decoder, tokenName: damlTypes.Text.decoder, amount: damlTypes.Numeric(10).decoder, }); }),
@@ -299,7 +299,7 @@ exports.UpdateTotalSupply = {
 
 exports.TokenMetadata = damlTypes.assembleTemplate(
 {
-  templateId: 'a636b4833c07b7e428d8abdf95d3b47ec9daec1d97fb7bb0965adcedd03fc458:CIP0056Token:TokenMetadata',
+  templateId: 'f052740a181af047e442276563a56be16cd8d58f9aba61d0d182a3b2a060c329:CIP0056Token:TokenMetadata',
   keyDecoder: damlTypes.lazyMemo(function () { return damlTypes.lazyMemo(function () { return pkg40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7.DA.Types.Tuple2(damlTypes.Party, damlTypes.Text).decoder; }); }),
   keyEncode: function (__typed__) { return pkg40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7.DA.Types.Tuple2(damlTypes.Party, damlTypes.Text).encode(__typed__); },
   decoder: damlTypes.lazyMemo(function () { return jtv.object({issuer: damlTypes.Party.decoder, tokenName: damlTypes.Text.decoder, currency: damlTypes.Text.decoder, quantityPrecision: damlTypes.Int.decoder, pricePrecision: damlTypes.Int.decoder, totalSupply: damlTypes.Numeric(10).decoder, description: damlTypes.Text.decoder, }); }),

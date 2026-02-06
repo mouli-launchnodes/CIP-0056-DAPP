@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { mintTokensSchema, type MintTokensFormData } from '@/lib/validations'
-import { Loader2, CheckCircle, ExternalLink, AlertTriangle, Coins, Eye, ArrowLeft, Shield } from '@/lib/icons'
+import { Loader2, CheckCircle, ExternalLink, AlertTriangle, Coins, Eye, ArrowLeft, Shield, Plus } from '@/lib/icons'
 import { AuthWrapper } from '@/components/auth-wrapper'
 import { BlockExplorerModal } from '@/components/block-explorer-modal'
 import Link from 'next/link'
@@ -31,6 +31,7 @@ interface MintStatus {
 
 function MintTokensContent() {
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false)
   const [tokens, setTokens] = useState<Token[]>([])
   const [mintResult, setMintResult] = useState<MintResult | null>(null)
   const [mintStatus, setMintStatus] = useState<MintStatus>({
@@ -39,6 +40,7 @@ function MintTokensContent() {
     progress: 0
   })
   const [showBlockExplorer, setShowBlockExplorer] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
   const {
     register,
@@ -56,21 +58,78 @@ function MintTokensContent() {
   const tokenId = watch('tokenId')
   const amount = watch('amount')
 
-  // Fetch available tokens
-  useEffect(() => {
-    const fetchTokens = async () => {
-      try {
-        const response = await fetch('/api/tokens')
-        if (response.ok) {
-          const data = await response.json()
-          setTokens(data.tokens)
+  // Fetch available tokens with refresh capability
+  const fetchTokens = async (showLoading = false) => {
+    if (showLoading) setIsLoadingTokens(true)
+    
+    try {
+      console.log('Fetching tokens for mint page...')
+      const response = await fetch('/api/tokens', {
+        // Add cache-busting to ensure fresh data
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
-      } catch (error) {
-        console.error('Error fetching tokens:', error)
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          console.log(`Found ${data.tokens?.length || 0} tokens for minting`)
+          setTokens(data.tokens || [])
+          setLastRefresh(new Date())
+          
+          if (data.tokens?.length > 0) {
+            toast.success(`Loaded ${data.tokens.length} available tokens`)
+          }
+        } else {
+          throw new Error(data.error || 'Failed to fetch tokens')
+        }
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Error fetching tokens:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error loading tokens'
+      
+      // Check if it's a DAML unavailable error
+      if (errorMessage.includes('DAML ledger is required')) {
+        toast.error('DAML ledger is not available. Please ensure DAML is running.')
+      } else {
+        toast.error(errorMessage)
+      }
+      
+      // Set empty tokens array on error
+      setTokens([])
+    } finally {
+      if (showLoading) setIsLoadingTokens(false)
+    }
+  }
+
+  // Initial fetch and periodic refresh
+  useEffect(() => {
+    fetchTokens(true)
+    
+    // Set up periodic refresh every 30 seconds to catch new tokens
+    const interval = setInterval(() => {
+      fetchTokens(false)
+    }, 30000)
+    
+    return () => clearInterval(interval)
+  }, [])
+
+  // Listen for page visibility changes to refresh when user returns
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible, refreshing tokens...')
+        fetchTokens(false)
       }
     }
 
-    fetchTokens()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
   const onSubmit = async (data: MintTokensFormData) => {
@@ -126,6 +185,12 @@ function MintTokensContent() {
       
       setMintResult(responseData.transaction)
       toast.success('Tokens minted successfully!')
+      
+      // Refresh token list to show updated total supply
+      setTimeout(() => {
+        fetchTokens(false)
+      }, 1000)
+      
       reset()
       
     } catch (error) {
@@ -206,20 +271,47 @@ function MintTokensContent() {
 
             {/* Token Selection Section */}
             <div className="form-section">
-              <h3 className="form-section-title">Token Selection & Amount</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="form-section-title">Token Selection & Amount</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Last updated: {lastRefresh.toLocaleTimeString()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => fetchTokens(true)}
+                    disabled={isLoadingTokens}
+                    className="btn btn-sm btn-outline"
+                    title="Refresh token list"
+                  >
+                    {isLoadingTokens ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      'Refresh'
+                    )}
+                  </button>
+                </div>
+              </div>
               <div className="form-grid">
                 <div className="form-group">
                   <label htmlFor="tokenId" className="form-label required">Token/Instrument</label>
                   <select 
                     id="tokenId"
                     {...register('tokenId')}
-                    disabled={isLoading}
+                    disabled={isLoading || isLoadingTokens}
                     className="form-select"
                   >
-                    <option value="">Select a token to mint</option>
+                    <option value="">
+                      {isLoadingTokens 
+                        ? 'Loading tokens...' 
+                        : tokens.length === 0 
+                          ? 'No tokens available - create one first'
+                          : 'Select a token to mint'
+                      }
+                    </option>
                     {tokens.map((token) => (
                       <option key={token.id} value={token.id}>
-                        {token.name} ({token.currency})
+                        {token.name} ({token.currency}) - {token.contractAddress.substring(0, 8)}...
                       </option>
                     ))}
                   </select>
@@ -229,7 +321,12 @@ function MintTokensContent() {
                       {errors.tokenId.message}
                     </div>
                   )}
-                  <p className="form-help">Choose the token contract to mint from</p>
+                  <p className="form-help">
+                    Choose the token contract to mint from
+                    {tokens.length > 0 && (
+                      <span className="text-success"> • {tokens.length} tokens available</span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="form-group">
@@ -255,12 +352,29 @@ function MintTokensContent() {
             </div>
 
             {/* Warning for no tokens */}
-            {tokens.length === 0 && (
+            {!isLoadingTokens && tokens.length === 0 && (
               <div className="alert alert-warning">
                 <AlertTriangle className="alert-icon" />
+                <div className="flex-1">
+                  <strong>No tokens available for minting</strong>
+                  <p>You need to create a token contract first before you can mint tokens.</p>
+                </div>
+                <Link href="/create-token">
+                  <button className="btn btn-sm btn-primary">
+                    <Plus className="h-4 w-4" />
+                    Create Token
+                  </button>
+                </Link>
+              </div>
+            )}
+
+            {/* Loading state for tokens */}
+            {isLoadingTokens && (
+              <div className="alert alert-info">
+                <Loader2 className="alert-icon animate-spin" />
                 <div>
-                  <strong>No tokens available</strong>
-                  <p>Please create a token contract first before minting tokens.</p>
+                  <strong>Loading available tokens...</strong>
+                  <p>Please wait while we fetch your token contracts.</p>
                 </div>
               </div>
             )}
@@ -268,11 +382,13 @@ function MintTokensContent() {
             {/* Submit Button */}
             <button 
               type="submit" 
-              className={`btn btn-primary btn-lg w-full ${isLoading ? 'btn-loading' : ''} ${!isValid ? 'opacity-60' : ''}`}
-              disabled={isLoading || tokens.length === 0 || !isValid}
+              className={`btn btn-primary btn-lg w-full ${(isLoading || isLoadingTokens) ? 'btn-loading' : ''} ${!isValid ? 'opacity-60' : ''}`}
+              disabled={isLoading || isLoadingTokens || tokens.length === 0 || !isValid}
             >
               {isLoading ? (
                 'Minting Tokens...'
+              ) : isLoadingTokens ? (
+                'Loading Tokens...'
               ) : (
                 <>
                   <Coins className="h-5 w-5" />

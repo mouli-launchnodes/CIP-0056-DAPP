@@ -7121,3 +7121,125 @@ html {
   word-break: break-word;
   max-width: 100%;
 }
+
+/* ===== UI Polish Improvements ===== */
+
+/* Navbar icon buttons consistent styling */
+.navbar-right .icon-btn,
+.navbar-right button[aria-label] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--foreground);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.navbar-right .icon-btn:hover,
+.navbar-right button[aria-label]:hover {
+  background: var(--accent);
+  border-color: var(--border-strong);
+}
+
+/* Enhanced form input for long party IDs */
+.form-input.font-mono {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+}
+
+/* Better button styling */
+.btn-secondary {
+  background: var(--muted);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--accent);
+  border-color: var(--border-strong);
+}
+
+/* Transfer page specific improvements */
+.enhanced-form-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.enhanced-form-card .card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+}
+
+.enhanced-form-card .card-content {
+  padding: 1.5rem;
+}
+
+.enhanced-form-card .card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.25rem 0;
+}
+
+.enhanced-form-card .card-description {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+/* Party ID text truncation in navbar */
+.party-id-text {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .party-id-text {
+    max-width: 180px;
+  }
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 640px) {
+  .page-header {
+    padding: 1rem;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .page-description {
+    font-size: 0.875rem;
+  }
+
+  .enhanced-form-card .card-header,
+  .enhanced-form-card .card-content {
+    padding: 1rem;
+  }
+
+  .form-input,
+  .form-select {
+    font-size: 1rem; /* Prevent zoom on iOS */
+  }
+
+  .btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}

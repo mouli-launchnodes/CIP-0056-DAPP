@@ -45,6 +45,8 @@ function TransferTokensContent() {
     progress: 0
   })
   const [showBlockExplorer, setShowBlockExplorer] = useState(false)
+  const [currentUserPartyId, setCurrentUserPartyId] = useState<string>('')
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   const {
     register,
@@ -60,6 +62,30 @@ function TransferTokensContent() {
 
   const senderPartyId = watch('senderPartyId')
   const selectedTokenId = watch('tokenId')
+
+  // Fetch current user's party ID and auto-populate sender field
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/debug/session')
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Current user session:', data)
+          setDebugInfo(data)
+          
+          if (data.session?.partyId) {
+            setCurrentUserPartyId(data.session.partyId)
+            // Auto-populate sender field with current user's party ID
+            setValue('senderPartyId', data.session.partyId)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error)
+      }
+    }
+
+    fetchCurrentUser()
+  }, [])
 
   // Fetch available tokens
   useEffect(() => {
@@ -194,18 +220,36 @@ function TransferTokensContent() {
         </div>
         <div className="card-content">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="form-grid">
+            <div className="space-y-6">
               <div className="form-group">
                 <label htmlFor="senderPartyId" className="form-label">Sender Party ID</label>
-                <input
-                  id="senderPartyId"
-                  placeholder="Enter sender's Party ID"
-                  {...register('senderPartyId')}
-                  disabled={isLoading}
-                  className="form-input"
-                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    id="senderPartyId"
+                    placeholder="Enter sender's Party ID"
+                    {...register('senderPartyId')}
+                    disabled={isLoading}
+                    className="form-input flex-1 font-mono text-sm"
+                  />
+                  {currentUserPartyId && (
+                    <button
+                      type="button"
+                      onClick={() => setValue('senderPartyId', currentUserPartyId)}
+                      className="btn btn-secondary whitespace-nowrap px-4 py-2 text-sm"
+                    >
+                      Use My ID
+                    </button>
+                  )}
+                </div>
                 {errors.senderPartyId && (
                   <p className="text-sm text-error mt-1">{errors.senderPartyId.message}</p>
+                )}
+                {currentUserPartyId && (
+                  <p className="text-xs text-muted-foreground mt-2 font-mono break-all">
+                    Your Party ID: {currentUserPartyId.length > 50
+                      ? `${currentUserPartyId.substring(0, 25)}...${currentUserPartyId.substring(currentUserPartyId.length - 25)}`
+                      : currentUserPartyId}
+                  </p>
                 )}
               </div>
 
@@ -216,7 +260,7 @@ function TransferTokensContent() {
                   placeholder="Enter recipient's Party ID"
                   {...register('recipientPartyId')}
                   disabled={isLoading}
-                  className="form-input"
+                  className="form-input font-mono text-sm"
                 />
                 {errors.recipientPartyId && (
                   <p className="text-sm text-error mt-1">{errors.recipientPartyId.message}</p>
@@ -272,7 +316,7 @@ function TransferTokensContent() {
                   {isCheckingBalance ? (
                     <div className="flex items-center text-muted-foreground">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Checking balance...
+                      Checking balance for {senderPartyId.substring(0, 20)}...
                     </div>
                   ) : balanceInfo ? (
                     <div className="flex items-center text-success">
@@ -280,11 +324,37 @@ function TransferTokensContent() {
                       <span><strong>Available Balance:</strong> {balanceInfo.available} {balanceInfo.token}</span>
                     </div>
                   ) : (
-                    <div className="flex items-center text-warning">
-                      <AlertTriangle className="mr-2 h-4 w-4" />
-                      <span>No balance found or insufficient funds</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-warning">
+                        <AlertTriangle className="mr-2 h-4 w-4" />
+                        <span>No balance found for this Party ID</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Checking: {senderPartyId}</p>
+                        <p>Token: {selectedTokenId}</p>
+                        {currentUserPartyId && senderPartyId !== currentUserPartyId && (
+                          <p className="text-warning">⚠️ You're checking a different Party ID than your logged-in account</p>
+                        )}
+                      </div>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Debug Information */}
+            {debugInfo && (
+              <div className="card" style={{ background: 'var(--muted)', border: '1px solid var(--border)' }}>
+                <div className="card-header">
+                  <h4 className="card-title">Debug Information</h4>
+                </div>
+                <div className="card-content">
+                  <div className="text-xs space-y-1">
+                    <p><strong>Your Email:</strong> {debugInfo.session?.email}</p>
+                    <p><strong>Your Party ID:</strong> {debugInfo.session?.partyId}</p>
+                    <p><strong>Sender Field:</strong> {senderPartyId || 'Not set'}</p>
+                    <p><strong>Match:</strong> {senderPartyId === debugInfo.session?.partyId ? '✅ Yes' : '❌ No'}</p>
+                  </div>
                 </div>
               </div>
             )}

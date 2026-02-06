@@ -36,18 +36,27 @@ export async function GET(request: NextRequest) {
     const pendingProposals = await damlClient.getPendingTransferProposals(partyId)
     
     // Convert DAML proposals to notifications
-    const proposalNotifications = pendingProposals.map(p => ({
-      id: `proposal-${p.contractId}`,
-      type: 'transfer_proposal' as const,
-      from: p.proposal.currentOwner,
-      to: p.proposal.newOwner,
-      tokenName: p.proposal.tokenName,
-      amount: p.proposal.transferAmount,
-      proposalId: p.contractId,
-      message: `You have received a transfer proposal for ${p.proposal.transferAmount} ${p.proposal.tokenName} tokens from ${p.proposal.currentOwner}`,
-      timestamp: new Date().toISOString(),
-      read: false
-    }))
+    // Flag legacy proposals that may be stale
+    const proposalNotifications = pendingProposals.map(p => {
+      const isLegacy = p.isLegacy || p.proposal.holdingId !== undefined
+      const fromPartyDisplay = p.proposal.currentOwner.split('::')[0]
+
+      return {
+        id: `proposal-${p.contractId}`,
+        type: 'transfer_proposal' as const,
+        from: p.proposal.currentOwner,
+        to: p.proposal.newOwner,
+        tokenName: p.proposal.tokenName,
+        amount: p.proposal.transferAmount,
+        proposalId: p.contractId,
+        message: isLegacy
+          ? `[LEGACY] Transfer proposal for ${p.proposal.transferAmount} ${p.proposal.tokenName} tokens from ${fromPartyDisplay}. This proposal may be stale and could fail to accept.`
+          : `You have received a transfer proposal for ${p.proposal.transferAmount} ${p.proposal.tokenName} tokens from ${fromPartyDisplay}`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        isLegacy
+      }
+    })
     
     // Combine stored notifications with proposal notifications
     const allNotifications = [...partyNotifications, ...proposalNotifications]

@@ -15,14 +15,22 @@ interface DashboardStats {
   refetch: () => void
 }
 
-// Memoized stats calculation to prevent unnecessary re-renders
+// Real stats calculation from DAML ledger data
 const calculateStats = (tokensData: any[], holdingsData: any[]) => {
   const tokensCreated = tokensData?.length || 0
   const totalMinted = holdingsData?.reduce((sum: number, holding: any) => {
     const balance = parseFloat(holding.totalBalance) || 0
     return sum + balance
   }, 0) || 0
-  const activeTransactions = Math.floor(Math.random() * 5) + 1 // Mock data
+  
+  // Calculate active transactions from recent holdings activity
+  // In a real implementation, this would query DAML transaction history
+  const activeTransactions = holdingsData?.filter(holding => {
+    // Consider holdings with recent activity as active transactions
+    const createdRecently = holding.createdAt && 
+      new Date(holding.createdAt).getTime() > Date.now() - (24 * 60 * 60 * 1000) // Last 24 hours
+    return createdRecently
+  }).length || 0
 
   return {
     tokensCreated,
@@ -60,12 +68,26 @@ export function useDashboardStats(): DashboardStats {
 
       if (tokensResponse.ok) {
         const tokensResult = await tokensResponse.json()
-        setTokensData(tokensResult.tokens || [])
+        if (tokensResult.success) {
+          setTokensData(tokensResult.tokens || [])
+        } else {
+          throw new Error(tokensResult.error || 'Failed to fetch tokens')
+        }
+      } else {
+        const errorData = await tokensResponse.json()
+        throw new Error(errorData.error || `HTTP ${tokensResponse.status}`)
       }
 
       if (holdingsResponse.ok) {
         const holdingsResult = await holdingsResponse.json()
-        setHoldingsData(holdingsResult.holdings || [])
+        if (holdingsResult.success) {
+          setHoldingsData(holdingsResult.holdings || [])
+        } else {
+          throw new Error(holdingsResult.error || 'Failed to fetch holdings')
+        }
+      } else {
+        const errorData = await holdingsResponse.json()
+        throw new Error(errorData.error || `HTTP ${holdingsResponse.status}`)
       }
     } catch (err) {
       console.error('Error fetching system data:', err)

@@ -149,27 +149,12 @@ export async function GET(request: NextRequest) {
     } catch (damlError) {
       console.error('DAML transaction query error:', damlError)
       
-      // Return empty transactions when DAML is not available
+      // STRICT MODE: No fallback - return error when DAML is not available
       return NextResponse.json({
-        success: true,
-        transactions: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false
-        },
-        filters: {
-          partyId,
-          tokenId,
-          type,
-          status
-        },
-        source: 'DAML Ledger (unavailable)',
-        error: 'DAML ledger not available for transaction history'
-      })
+        success: false,
+        error: 'DAML ledger is required for transaction history but is not available. Please ensure DAML is running.',
+        details: damlError instanceof Error ? damlError.message : 'Unknown DAML error'
+      }, { status: 503 })
     }
 
   } catch (error) {
@@ -228,14 +213,12 @@ export async function POST(request: NextRequest) {
       } catch (damlError) {
         console.error('DAML subscription error:', damlError)
         
+        // STRICT MODE: No fallback - return error when DAML is not available
         return NextResponse.json({
-          success: true,
-          action: 'subscribe',
-          partyId,
-          recentTransactions: [],
-          source: 'DAML Ledger (unavailable)',
-          error: 'DAML ledger not available'
-        })
+          success: false,
+          error: 'DAML ledger is required for transaction monitoring but is not available. Please ensure DAML is running.',
+          details: damlError instanceof Error ? damlError.message : 'Unknown DAML error'
+        }, { status: 503 })
       }
     }
 

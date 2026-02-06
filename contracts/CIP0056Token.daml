@@ -50,14 +50,19 @@ template TokenHolding
       do
         assertMsg "Insufficient balance" (transferAmount <= amount)
         assertMsg "Transfer amount must be positive" (transferAmount > 0.0)
-        
+
+        -- Archive the original holding (lock the tokens in the proposal)
+        -- This prevents multiple proposals from the same holding
+        let senderRemaining = amount - transferAmount
+
+        -- Create the proposal with locked amounts (no stale holdingId reference)
         create TransferProposal with
           issuer = issuer
           currentOwner = owner
           newOwner = newOwner
           tokenName = tokenName
           transferAmount = transferAmount
-          holdingId = self
+          senderRemainingAmount = senderRemaining
     
     choice Burn : Optional (ContractId TokenHolding)
       with
@@ -67,9 +72,12 @@ template TokenHolding
         assertMsg "Insufficient balance" (burnAmount <= amount)
         assertMsg "Burn amount must be positive" (burnAmount > 0.0)
         
+        -- Update metadata to reduce total supply (owner can't do key lookups, so issuer must handle this)
+        -- For now, just handle the holding update
+        
         -- Update holding or archive if fully burned
         if burnAmount == amount
-        then return None -- Contract is archived
+        then return None -- Contract is archived, fully burned
         else do
           remainingHolding <- create this with amount = amount - burnAmount
           return (Some remainingHolding)
@@ -110,14 +118,16 @@ template TokenHolding
           tokenName = tokenName
           amount = transferAmount
         
-        -- Create remaining holding for sender if any
+        -- Create remaining holding for sender if partial transfer
         if transferAmount == amount
-        then return (newHolding, None)
+        then return (newHolding, None)  -- Full transfer, no remaining balance
         else do
+          -- Partial transfer, create remaining holding for original owner
           remainingHolding <- create this with amount = amount - transferAmount
           return (newHolding, Some remainingHolding)
 
 -- Transfer proposal template for two-party transfers
+-- Tokens are now locked in the proposal itself (no holdingId reference to stale contract)
 template TransferProposal
   with
     issuer : Party
@@ -125,40 +135,42 @@ template TransferProposal
     newOwner : Party
     tokenName : Text
     transferAmount : Decimal
-    holdingId : ContractId TokenHolding
+    senderRemainingAmount : Decimal  -- Remaining balance locked for sender
   where
     signatory issuer
     observer currentOwner, newOwner
-    
+
     choice AcceptTransfer : (ContractId TokenHolding, Optional (ContractId TokenHolding))
       controller newOwner
       do
-        -- Archive the original holding
-        holding <- fetch holdingId
-        archive holdingId
-        
         -- Create new holding for recipient
         newHolding <- create TokenHolding with
           issuer = issuer
           owner = newOwner
           tokenName = tokenName
           amount = transferAmount
-        
-        -- Create remaining holding for sender if any
-        if transferAmount == holding.amount
-        then return (newHolding, None)
+
+        -- Create remaining holding for sender if they had remaining balance
+        if senderRemainingAmount == 0.0
+        then return (newHolding, None)  -- Full transfer, no remaining balance
         else do
+          -- Partial transfer, create remaining holding for sender
           remainingHolding <- create TokenHolding with
             issuer = issuer
             owner = currentOwner
             tokenName = tokenName
-            amount = holding.amount - transferAmount
+            amount = senderRemainingAmount
           return (newHolding, Some remainingHolding)
-    
-    choice RejectTransfer : ()
+
+    choice RejectTransfer : ContractId TokenHolding
       controller newOwner
       do
-        return ()  -- Simply archive the proposal
+        -- Return all tokens (transfer amount + remaining) back to sender
+        create TokenHolding with
+          issuer = issuer
+          owner = currentOwner
+          tokenName = tokenName
+          amount = transferAmount + senderRemainingAmount
 
 -- Mint request template for controlled minting
 template MintRequest

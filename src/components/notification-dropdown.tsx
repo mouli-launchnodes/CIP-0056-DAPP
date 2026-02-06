@@ -165,14 +165,15 @@ export function NotificationDropdown({ userPartyId }: NotificationDropdownProps)
       {/* Notification Bell Button */}
       <Button
         variant="ghost"
-        size="sm"
+        size="icon"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 h-10 w-10"
+        className="relative h-10 w-10 rounded-lg border border-border bg-muted/50 hover:bg-muted transition-colors"
+        aria-label="Notifications"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className="h-5 w-5 text-foreground" />
         {unreadCount > 0 && (
           <motion.div
-            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-semibold"
+            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-semibold shadow-sm"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}

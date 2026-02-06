@@ -12,49 +12,91 @@ export async function GET(request: NextRequest) {
     
     // If specific balance check for a party and token
     if (partyId && tokenId) {
-      console.log(`Checking balance for party ${partyId} and token ${tokenId}`)
-      
+      console.log(`\n=== Balance Check Request ===`)
+      console.log(`Party ID: ${partyId}`)
+      console.log(`Token ID: ${tokenId}`)
+
       try {
+        // Get holdings for this party first
         const holdings = await damlClient.getHoldings(partyId)
-        
-        // Find the specific token holding by either tokenName or contractId
-        const tokenHolding = holdings.find(h => 
-          h.holding.tokenName === tokenId || h.contractId === tokenId
-        )
-        
-        if (!tokenHolding) {
-          // Also try to find by token name from the tokens list
-          const allTokens = await damlClient.getAllTokens()
-          const token = allTokens.find(t => t.contractId === tokenId)
-          
+        console.log(`Found ${holdings.length} holdings for party ${partyId.substring(0, 30)}...`)
+
+        if (holdings.length > 0) {
+          console.log('Holdings for this party:')
+          holdings.forEach(h => {
+            console.log(`  - ${h.holding.tokenName}: ${h.holding.amount}`)
+          })
+        } else {
+          console.log('No holdings found for this party')
+        }
+
+        // Try to find the token to get its name
+        // tokenId could be either a contractId or a tokenName
+        let targetTokenName = tokenId
+
+        // First, try to get tokens to resolve contractId -> tokenName
+        try {
+          const allTokens = await damlClient.getAllTokens(partyId)
+          console.log(`Found ${allTokens.length} tokens in the system`)
+
+          const token = allTokens.find(t => t.contractId === tokenId || t.metadata.tokenName === tokenId)
           if (token) {
-            // Look for holding by token name
-            const holdingByName = holdings.find(h => h.holding.tokenName === token.metadata.tokenName)
-            if (holdingByName) {
-              return NextResponse.json({
-                success: true,
-                balance: {
-                  available: holdingByName.holding.amount,
-                  token: holdingByName.holding.tokenName
-                }
-              })
-            }
+            targetTokenName = token.metadata.tokenName
+            console.log(`Resolved token: ${targetTokenName}`)
+          } else {
+            console.log(`Token not found by contractId, will try direct tokenName match`)
           }
-          
+        } catch (tokenError) {
+          console.log('Could not fetch tokens, will try direct tokenName match')
+        }
+
+        // Find the specific token holding by tokenName
+        let tokenHolding = holdings.find(h => h.holding.tokenName === targetTokenName)
+
+        // If not found by resolved name, try matching the raw tokenId as tokenName
+        if (!tokenHolding && targetTokenName !== tokenId) {
+          tokenHolding = holdings.find(h => h.holding.tokenName === tokenId)
+          if (tokenHolding) {
+            targetTokenName = tokenId
+            console.log(`Found holding by raw tokenId match: ${targetTokenName}`)
+          }
+        }
+
+        // If still not found, try partial match (tokenName contains or starts with)
+        if (!tokenHolding && holdings.length > 0) {
+          // Try to find by tokenId being a prefix of holding's tokenName or vice versa
+          tokenHolding = holdings.find(h =>
+            h.holding.tokenName.includes(tokenId) ||
+            tokenId.includes(h.holding.tokenName)
+          )
+          if (tokenHolding) {
+            targetTokenName = tokenHolding.holding.tokenName
+            console.log(`Found holding by partial match: ${targetTokenName}`)
+          }
+        }
+
+        if (tokenHolding) {
+          console.log(`=== Found holding: ${targetTokenName} = ${tokenHolding.holding.amount} ===`)
           return NextResponse.json({
             success: true,
             balance: {
-              available: '0',
-              token: token?.metadata.tokenName || tokenId
+              available: tokenHolding.holding.amount,
+              token: tokenHolding.holding.tokenName
             }
           })
         }
-        
+
+        // No holding found - check if user has any holdings at all
+        if (holdings.length > 0) {
+          console.log(`Token "${targetTokenName}" not found in holdings.`)
+          console.log(`Available tokens for this party: ${holdings.map(h => h.holding.tokenName).join(', ')}`)
+        }
+
         return NextResponse.json({
           success: true,
           balance: {
-            available: tokenHolding.holding.amount,
-            token: tokenHolding.holding.tokenName
+            available: '0',
+            token: targetTokenName
           }
         })
       } catch (error) {
@@ -105,11 +147,10 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         console.error('Error fetching system-wide holdings:', error)
         return NextResponse.json({
-          success: true,
-          holdings: [],
-          systemWide: true,
-          error: 'Failed to fetch system-wide holdings from DAML ledger'
-        })
+          success: false,
+          error: 'DAML ledger is required for holdings data but is not available. Please ensure DAML is running.',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 503 })
       }
     }
     
@@ -154,11 +195,10 @@ export async function GET(request: NextRequest) {
       console.error(`Error fetching holdings for party ${partyId}:`, error)
       
       return NextResponse.json({
-        success: true,
-        holdings: [],
-        partyId: partyId,
-        error: 'Failed to fetch holdings from DAML ledger'
-      })
+        success: false,
+        error: 'DAML ledger is required for holdings data but is not available. Please ensure DAML is running.',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 503 })
     }
     
   } catch (error) {
