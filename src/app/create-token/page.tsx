@@ -75,7 +75,7 @@ function CreateTokenContent() {
     <div className="page-container">
       {/* Professional Page Header */}
       <div className="page-header">
-        <h1 className="page-title">Create Token Contract</h1>
+        <h1 className="page-title">Tokenise Fund Contract</h1>
         <p className="page-description">
           Deploy a new CIP0056-compliant token contract on Canton Network with enterprise-grade security and compliance features
         </p>

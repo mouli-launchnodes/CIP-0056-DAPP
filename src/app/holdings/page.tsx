@@ -123,7 +123,7 @@ function HoldingsContent() {
     <div className="page-container">
       {/* Professional Page Header */}
       <div className="page-header">
-        <h1 className="page-title">Token Holdings</h1>
+        <h1 className="page-title">Tokenized Funds Portfolio View</h1>
         <p className="page-description">
           View comprehensive token balances and collateral status across all parties with real-time updates and detailed analytics
         </p>

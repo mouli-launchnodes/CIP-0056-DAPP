@@ -204,7 +204,7 @@ function TransferTokensContent() {
     <div className="page-container">
       {/* Enhanced Header */}
       <div className="page-header">
-        <h1 className="page-title">Transfer Tokens</h1>
+        <h1 className="page-title">Transfer Fund Tokens</h1>
         <p className="page-description">
           Securely transfer tokens between Party IDs on the Canton Network with real-time balance verification
         </p>

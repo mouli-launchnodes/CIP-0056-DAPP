@@ -210,7 +210,7 @@ function MintTokensContent() {
     <div className="page-container">
       {/* Professional Page Header */}
       <div className="page-header">
-        <h1 className="page-title">Mint Tokens</h1>
+        <h1 className="page-title">Mint Fund Tokens</h1>
         <p className="page-description">
           Create new tokens and distribute them to Party IDs on the Canton Network with real-time validation and enterprise security
         </p>
